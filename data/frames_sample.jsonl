@@ -1,0 +1,3 @@
+{"id": "fr-001", "type": "multihop_qa", "question": "Demo multi-hop question (replace with real FRAMES via --suite frames).", "gold": "expected answer", "aliases": ["expected ans"]}
+{"id": "fr-002", "type": "deep_research", "question": "Demo deep-research question with a checkable answer.", "gold": "1969"}
+{"id": "fr-003", "type": "factual", "question": "Demo factual question.", "gold": "United States", "aliases": ["USA", "US"]}

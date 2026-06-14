@@ -1,0 +1,5 @@
+{"id": "s001", "type": "factual", "question": "Example short-answer factual question.", "gold": "expected answer"}
+{"id": "s002", "type": "deep_research", "question": "Example web-augmented deep-research question with a single checkable answer.", "gold": "expected answer"}
+{"id": "s003", "type": "multihop_qa", "question": "Example multi-hop question requiring two sources.", "gold": "expected answer"}
+{"id": "s004", "type": "code", "question": "Example code question with a verifiable result.", "gold": "expected answer"}
+{"id": "s005", "type": "math", "question": "Example math question with a numeric answer.", "gold": "42"}

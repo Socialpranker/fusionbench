@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use FusionBench, please cite it."
+title: "FusionBench: when is multi-model fusion worth it?"
+abstract: >-
+  A cost-aware harness and public catalog that measures, per task type and at
+  matched compute, which multi-model fusion recipe (panel + judge + synthesizer)
+  is worth its cost over a single model or self-MoA, using a complementarity
+  prefilter to keep the search cheap.
+authors:
+  - name: "Ion"
+version: 0.0.1
+date-released: 2026-06-14
+license: MIT
+url: "https://github.com/yourname/fusionbench"
+keywords:
+  - llm
+  - model-fusion
+  - mixture-of-agents
+  - evaluation
+  - benchmark
