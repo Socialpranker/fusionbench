@@ -44,3 +44,18 @@ def test_unknown_kind_raises():
         make_constraint("no_such_kind")
     with pytest.raises(KeyError):
         constraint_from_dict({"kind": "no_such_kind", "params": {}})
+
+
+def test_ifbench_loader_constraints_serializable():
+    from fusionbench.tasks.ifbench import IFBenchLoader
+    examples = IFBenchLoader().load(limit=3)
+    assert len(examples) == 3
+    # probes hit both branches of each kind: a 3-word lowercase string, an all-caps
+    # string, and the literal "cat"/"ocean" words that make `contains` fire True.
+    probes = ["HELLO WORLD", "one two three", "cat", "the ocean is wide"]
+    for ex in examples:
+        for c in ex.reference:
+            d = constraint_to_dict(c)             # must not raise (kind present)
+            c2 = constraint_from_dict(d)
+            for s in probes:
+                assert c2.check(s) == c.check(s)
