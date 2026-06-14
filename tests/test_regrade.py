@@ -47,3 +47,24 @@ def test_cost_anomaly_is_warning_not_failure(tmp_path):
     )
     assert r.returncode == 0, r.stdout + r.stderr
     assert "WARN" in (r.stdout + r.stderr)
+
+
+def test_validate_manifest_accepts_honest():
+    r = subprocess.run(
+        [sys.executable, str(Path(__file__).parent.parent / "scripts" / "validate_manifest.py"),
+         str(FIX / "manifest_honest.json")],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_validate_manifest_rejects_missing_field(tmp_path):
+    import json
+    bad = {"schema_version": 1, "suite": "ruler"}  # no "claimed"
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps(bad))
+    r = subprocess.run(
+        [sys.executable, str(Path(__file__).parent.parent / "scripts" / "validate_manifest.py"), str(p)],
+        capture_output=True, text=True,
+    )
+    assert r.returncode != 0
