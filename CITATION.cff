@@ -11,7 +11,7 @@ authors:
 version: 0.0.1
 date-released: 2026-06-14
 license: MIT
-url: "https://github.com/yourname/fusionbench"
+url: "https://github.com/Socialpranker/fusionbench"
 keywords:
   - llm
   - model-fusion

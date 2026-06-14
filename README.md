@@ -1,6 +1,6 @@
 # FusionBench
 
-![CI](https://github.com/yourname/fusionbench/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Socialpranker/fusionbench/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 
