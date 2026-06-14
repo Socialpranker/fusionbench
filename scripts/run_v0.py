@@ -31,15 +31,49 @@ from fusionbench.scoring import is_correct
 from fusionbench.budget import n_for_budget
 from fusionbench import complementarity as C
 from fusionbench.catalog import CatalogRow, write_rows, worthiness
-from fusionbench.tasks.loaders import load_tasks
+from fusionbench.tasks.loaders import load_tasks, LOADERS
+from fusionbench.tasks.browsecomp import synth_tasks
+from fusionbench.tasks.registry import REGISTRY
+from fusionbench.tasks.base import Example
+from fusionbench.grading.base import Verdict
+from fusionbench.runs import output_record, write_outputs
 
 
-async def evaluate(client, tasks, recipes):
+def load_suite(suite, limit, mock):
+    """Returns (tasks, scorer, grader_name). Registry suites carry their own grader and
+    reference; legacy suites (data/*.jsonl, --mock synth) keep the gold + is_correct path."""
+    spec = REGISTRY.get(suite)
+    if spec is not None and not (mock and suite == "frames"):
+        examples = spec.loader.load(limit)
+        tasks = [{"id": e.id, "type": e.type, "question": e.prompt, "gold": ""} for e in examples]
+        ref = {e.id: e for e in examples}
+
+        def scorer(task_id, answer):
+            e = ref[task_id]
+            return spec.grader.score(answer, e.reference, e.metadata).passed
+
+        return tasks, scorer, spec.grader.name
+
+    # --mock must stay offline: a network-backed loader (e.g. frames -> HF) is replaced
+    # by synthetic probes; file/synth suites keep their normal mock path.
+    if mock and suite in LOADERS:
+        tasks = synth_tasks(limit)
+    else:
+        tasks = load_tasks(suite, limit, mock)
+
+    def scorer(task_id, answer, _by_id={t["id"]: t for t in tasks}):
+        t = _by_id[task_id]
+        return is_correct(answer, t["gold"], t.get("aliases"))
+
+    return tasks, scorer, "ExactMatch@1"
+
+
+async def evaluate(client, tasks, recipes, scorer):
     jobs = [(t, r) for t in tasks for r in recipes]
     results = await asyncio.gather(*[run_arm(client, t, r) for (t, r) in jobs])
     out: dict[str, dict[str, object]] = defaultdict(dict)
     for (t, r), ar in zip(jobs, results):
-        ar.correct = is_correct(ar.answer, t["gold"], t.get("aliases"))
+        ar.correct = scorer(t["id"], ar.answer)
         out[r.name][t["id"]] = ar
     return out
 
@@ -57,10 +91,11 @@ async def main():
     ap.add_argument("--n-self-moa", type=int, default=5)
     ap.add_argument("--mock", action="store_true")
     ap.add_argument("--out", default="runs/catalog.jsonl")
+    ap.add_argument("--outputs", default="runs/outputs.jsonl", help="raw per-task outputs for CI re-grade")
     args = ap.parse_args()
 
     client = MockClient() if args.mock else OpenRouterClient()
-    tasks = load_tasks(args.suite, args.limit, args.mock)
+    tasks, scorer, grader_name = load_suite(args.suite, args.limit, args.mock)
     by_type = defaultdict(list)
     for t in tasks:
         by_type[t["type"]].append(t)
@@ -77,7 +112,7 @@ async def main():
     recipes = build_v0_recipes(n_self_moa=n)
     print(f"matched budget: target≈{target} tok/task -> self-moa N={n}  ({len(tasks)} tasks, {'MOCK' if args.mock else 'LIVE'})\n")
 
-    results = await evaluate(client, tasks, recipes)
+    results = await evaluate(client, tasks, recipes, scorer)
     names = [r.name for r in recipes]
 
     # --- overall cost-quality table ---
@@ -119,13 +154,19 @@ async def main():
     for ttype, ts in by_type.items():
         ids = [t["id"] for t in ts]
         tmap = {t["id"]: t for t in ts}
-        correctness = {
-            m: [is_correct(results["fusion-cheap"][i].panel_answers.get(m, ""),
-                           tmap[i]["gold"], tmap[i].get("aliases")) for i in ids]
-            for m in CHEAP_PANEL
-        }
-        compl = C.panel_complementarity(correctness, CHEAP_PANEL)
-        oracle = C.oracle_coverage(correctness, CHEAP_PANEL)
+        # Per-model complementarity is defined via agreement with a gold answer; suites
+        # without a gold string (constraint / synthetic types) don't support it.
+        has_gold = any(tmap[i].get("gold") for i in ids)
+        if has_gold:
+            correctness = {
+                m: [is_correct(results["fusion-cheap"][i].panel_answers.get(m, ""),
+                               tmap[i]["gold"], tmap[i].get("aliases")) for i in ids]
+                for m in CHEAP_PANEL
+            }
+            compl = C.panel_complementarity(correctness, CHEAP_PANEL)
+            oracle = C.oracle_coverage(correctness, CHEAP_PANEL)
+        else:
+            compl = oracle = 0.0
         type_acc = {nm: mean(results[nm][i].correct for i in ids) for nm in names}
         best_recipe = max(names, key=lambda nm: type_acc[nm])
         print(f"{ttype:<14}{best_recipe:<14}{type_acc[best_recipe]:>6.2f}{compl:>7.2f}{oracle:>8.2f}")
@@ -148,6 +189,20 @@ async def main():
 
     write_rows(args.out, rows)
     print(f"\nwrote {len(rows)} catalog rows -> {args.out}")
+
+    # --- raw per-(task × recipe) outputs: the artifact CI re-grades without LLM calls ---
+    run_id = f"{args.suite}_{'mock' if args.mock else 'live'}_{len(tasks)}"
+    tmap_all = {t["id"]: t for t in tasks}
+    records = []
+    for r in recipes:
+        for tid, ar in results[r.name].items():
+            ex = Example(id=tid, prompt=tmap_all[tid]["question"], reference=tmap_all[tid]["gold"],
+                         type=tmap_all[tid]["type"])
+            verdict = Verdict(passed=bool(ar.correct), score=1.0 if ar.correct else 0.0)
+            records.append(output_record(run_id, ex, r.name, ar, verdict, grader_name))
+    write_outputs(args.outputs, records)
+    print(f"wrote {len(records)} output records -> {args.outputs}")
+
     if not args.mock:
         await client.aclose()
 
