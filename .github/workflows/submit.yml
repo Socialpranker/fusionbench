@@ -29,9 +29,13 @@ jobs:
           if [ -z "$changed" ]; then echo "no submission dirs changed"; exit 0; fi
           for dir in $changed; do
             echo "::group::$dir"
-            suite=$(python -c "import json,sys; print(json.load(open('$dir/manifest.json'))['suite'])")
-            python scripts/decrypt_gold.py --suite "$suite"
+            # Validate (suite allowlist via REGISTRY + claimed-field checks) BEFORE decrypt:
+            # decrypt_gold.py runs with GOLD_DECRYPT_KEY, so no unvetted suite may reach it.
             python scripts/validate_manifest.py "$dir/manifest.json"
+            # Read suite via argv, never interpolate $dir into `python -c` — an attacker
+            # controls the path and a crafted dir name would otherwise run code on the runner.
+            suite=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["suite"])' "$dir/manifest.json")
+            python scripts/decrypt_gold.py --suite "$suite"
             python scripts/regrade.py \
               --manifest "$dir/manifest.json" \
               --outputs "$dir/outputs.jsonl" \
