@@ -172,6 +172,13 @@ tr.rec td:first-child{{border-left:3px solid #0d9488}}
 <div id="hero" class="card" style="height:420px"></div>
 <h2>Worthiness — recipe × task type</h2>
 <div id="heatmap" class="card" style="height:420px"></div>
+<h2>Explorer</h2>
+<div style="margin:8px 0">
+  <button id="dl-csv">Скачать CSV</button>
+  <button id="dl-json">Скачать JSON</button>
+</div>
+<div id="explorer-chart" class="card" style="height:420px"></div>
+<div id="explorer-table" class="card" style="overflow-x:auto"></div>
 <noscript>
 {sections}
 <h2>Cost vs quality (static)</h2>

@@ -109,6 +109,7 @@ function toCSV(cells) {
       ALL = data.cells || [];
       state.filters = parseHash();
       buildControls();
+      wireExport();
       update();
       window.addEventListener("hashchange", function () {
         if (hashTimer) { clearTimeout(hashTimer); hashTimer = null; }  // cancel pending slider write
@@ -131,7 +132,7 @@ function toCSV(cells) {
     disposeCharts();                 // tear down prior instances before re-init on same nodes
     var pts = aggregateRecipePoints(cells);
     var pareto = paretoFrontierJS(pts);
-    charts = [renderHero(pts, pareto), renderHeatmap(cells)];
+    charts = [renderHero(pts, pareto), renderHeatmap(cells), renderExplorer(cells)];
   }
 
   var TASK_TYPES = ["code", "deep_research", "multihop_qa", "math", "factual"];
@@ -323,6 +324,92 @@ function toCSV(cells) {
       }]
     });
     return hm;
+  }
+
+  function renderExplorer(cells) {
+    // scatter
+    var chartEl = document.getElementById("explorer-chart");
+    chartEl.textContent = "";
+    var ec = echarts.init(chartEl);
+    var maxN = Math.max.apply(null, cells.map(function (c) { return c.n || 1; }).concat([1]));
+    ec.setOption({
+      grid: { left: 56, right: 24, top: 24, bottom: 48 },
+      xAxis: { type: "log", name: "cost per task ($)", nameLocation: "middle", nameGap: 30 },
+      yAxis: { type: "value", name: "accuracy", min: 0, max: 1,
+               axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; } } },
+      tooltip: {
+        formatter: function (p) {
+          var c = p.data.cell;
+          return c.recipe + " / " + c.type + "<br>acc " + Math.round(c.accuracy * 100) +
+                 "% · $" + c.cost_usd.toFixed(4) + " · worth " +
+                 (c.worthiness_vs_best > 0 ? "+" : "") + Math.round(c.worthiness_vs_best * 100) + "%";
+        }
+      },
+      series: [{
+        type: "scatter",
+        data: cells.filter(function (c) { return c.cost_usd > 0; }).map(function (c) {
+          return { value: [c.cost_usd, c.accuracy], cell: c,
+                   symbolSize: 8 + 18 * (c.n || 1) / maxN,
+                   itemStyle: { color: ARM_COLOR[c.arm] || "#6b7280" } };
+        })
+      }]
+    });
+
+    // table (createElement / textContent — no innerHTML)
+    var cols = ["type", "recipe", "arm", "accuracy", "cost_usd", "worthiness_vs_best", "complementarity", "n"];
+    var host = document.getElementById("explorer-table");
+    host.textContent = "";
+    var tbl = document.createElement("table");
+    var thead = document.createElement("thead");
+    var htr = document.createElement("tr");
+    cols.forEach(function (k) {
+      var th = document.createElement("th"); th.textContent = k;
+      th.style.cursor = "pointer";
+      th.onclick = function () {
+        var map = { accuracy: "accuracy", cost_usd: "cost", worthiness_vs_best: "worthiness", recipe: "recipe" };
+        if (map[k]) { state.filters.sort = map[k]; buildControls(); update(); writeHash(); }
+      };
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr); tbl.appendChild(thead);
+    var tb = document.createElement("tbody");
+    cells.forEach(function (c) {
+      var tr = document.createElement("tr");
+      if (c.recommended) tr.className = "rec";
+      cols.forEach(function (k) {
+        var td = document.createElement("td");
+        var v = c[k];
+        if (k === "accuracy") td.textContent = Math.round(v * 100) + "%";
+        else if (k === "cost_usd") td.textContent = "$" + v.toFixed(4);
+        else if (k === "worthiness_vs_best") td.textContent = (v > 0 ? "+" : "") + Math.round(v * 100) + "%";
+        else if (k === "complementarity") td.textContent = v == null ? "—" : v.toFixed(2);
+        else td.textContent = v;
+        if (k === "accuracy" || k === "cost_usd" || k === "worthiness_vs_best" || k === "n") td.className = "num";
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); host.appendChild(tbl);
+    return ec;
+  }
+
+  function downloadBlob(text, filename, mime) {
+    var blob = new Blob([text], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  function wireExport() {
+    var csvBtn = document.getElementById("dl-csv");
+    var jsonBtn = document.getElementById("dl-json");
+    if (csvBtn) csvBtn.onclick = function () {
+      downloadBlob(toCSV(applyFilters(ALL, state.filters)), "fusionbench-cells.csv", "text/csv");
+    };
+    if (jsonBtn) jsonBtn.onclick = function () {
+      downloadBlob(JSON.stringify(applyFilters(ALL, state.filters), null, 2), "fusionbench-cells.json", "application/json");
+    };
   }
 })();
 
