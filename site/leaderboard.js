@@ -1,10 +1,9 @@
 // site/leaderboard.js — renders the relative contributor leaderboard from leaderboard.json.
 // No innerHTML (project hook blocks it) — only textContent / createElement.
 (function () {
-  if (typeof document === "undefined") return;  // not a browser (node UMD load)
-
   var board = document.getElementById("board");
   var foot = document.getElementById("foot");
+  if (!board) return;  // page template always ships #board; guard defensively
 
   fetch("leaderboard.json")
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
@@ -12,7 +11,7 @@
       var rows = (data && data.contributors) || [];
       if (foot) foot.textContent = "Updated " + ((data && data.updated) || "");
       if (!rows.length) {
-        board.textContent = "Пока нет верифицированных вкладов.";
+        board.textContent = "No verified contributions yet.";
         board.style.color = "#6b7280"; board.style.padding = "16px";
         return;
       }
