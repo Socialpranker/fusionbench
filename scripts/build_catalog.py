@@ -178,7 +178,7 @@ tr.rec td:first-child{{border-left:3px solid #0d9488}}
 <h2>Panel complementarity by task type</h2>
 <div class="card">{bars}</div>
 </noscript>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script src="app.js"></script>
 <p class="foot">{foot}</p>
 </div></body></html>"""
