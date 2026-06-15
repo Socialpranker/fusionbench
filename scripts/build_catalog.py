@@ -237,6 +237,76 @@ def render(rows: list[dict], title: str) -> str:
                        legend=legend, bars=compl_bars(by_type), foot=foot)
 
 
+def build_data(rows: list[dict]) -> dict:
+    """Emit the site/data.json contract from catalog rows. Pure: no I/O."""
+    from collections import defaultdict
+
+    suites = sorted({r["suite"] for r in rows if r.get("suite")})
+
+    # recipes: name -> arm (first seen), stable by name
+    recipe_arm: dict[str, str] = {}
+    for r in rows:
+        recipe_arm.setdefault(r["recipe"], r["arm"])
+    recipes = [{"name": n, "arm": a} for n, a in sorted(recipe_arm.items())]
+
+    # recommended flag: best (-accuracy, mean_cost_usd) per task_type
+    by_type: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        by_type[r["task_type"]].append(r)
+    rec_keys: set[tuple] = set()
+    for ttype, rs in by_type.items():
+        rec = recommended(rs)
+        rec_keys.add((ttype, rec["recipe"]))
+
+    cells = []
+    for r in rows:
+        cells.append({
+            "type": r["task_type"],
+            "recipe": r["recipe"],
+            "arm": r["arm"],
+            "accuracy": r["accuracy"],
+            "cost_usd": r["mean_cost_usd"],
+            "latency_s": r["mean_latency_s"],
+            "worthiness_vs_best": r["worthiness_vs_best"],
+            "worthiness_vs_self_moa": r["worthiness_vs_self_moa"],
+            "complementarity": r.get("complementarity"),
+            "recommended": (r["task_type"], r["recipe"]) in rec_keys,
+            "n": r["n_tasks"],
+        })
+
+    # recipe_points: mean cost/accuracy per recipe across task types (hero scatter)
+    agg: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        agg[r["recipe"]].append(r)
+    recipe_points = []
+    by_recipe_for_front: dict[str, dict] = {}
+    for nm, rs in sorted(agg.items()):
+        acc = sum(x["accuracy"] for x in rs) / len(rs)
+        cost = sum(x["mean_cost_usd"] for x in rs) / len(rs)
+        arm = rs[0]["arm"]
+        recipe_points.append({"recipe": nm, "arm": arm, "accuracy": acc, "cost_usd": cost})
+        by_recipe_for_front[nm] = {"acc": acc, "cost": cost, "arm": arm}
+
+    pareto = pareto_frontier(by_recipe_for_front)
+
+    # complementarity passthrough (emitted for the next stage; not drawn in core)
+    complementarity = []
+    for r in rows:
+        if r.get("complementarity") is not None:
+            complementarity.append({"type": r["task_type"], "recipe": r["recipe"],
+                                    "value": r["complementarity"]})
+
+    return {
+        "generated": time.strftime("%Y-%m-%d"),
+        "suites": suites,
+        "recipes": recipes,
+        "cells": cells,
+        "recipe_points": recipe_points,
+        "pareto": pareto,
+        "complementarity": complementarity,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", nargs="*", default=["runs/*.jsonl"])
