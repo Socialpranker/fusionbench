@@ -85,25 +85,35 @@ function toCSV(cells) {
     return;
   }
 
+  var ALL = [];                        // all cells from data.json
+  var state = { filters: { type: "", maxcost: Infinity, minacc: 0, sort: "worthiness" } };
+  var charts = [];
+
   fetch("data.json")
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(render)
+    .then(function (data) {
+      ALL = data.cells || [];
+      update();
+      window.addEventListener("resize", function () {
+        charts.forEach(function (c) { if (c) c.resize(); });
+      });
+    })
     .catch(function (e) { fail("Could not load data.json: " + e.message); });
 
-  function render(data) {
-    var charts = [renderHero(data), renderHeatmap(data)];
-    window.addEventListener("resize", function () {
-      charts.forEach(function (c) { if (c) c.resize(); });
-    });
+  function update() {
+    var cells = applyFilters(ALL, state.filters);
+    if (!cells.length) {
+      fail("Нет данных под текущий фильтр. Сбросьте фильтры.");
+      charts = [];
+      return;
+    }
+    var pts = aggregateRecipePoints(cells);
+    var pareto = paretoFrontierJS(pts);
+    charts = [renderHero(pts, pareto), renderHeatmap(cells)];
   }
 
-  function renderHero(data) {
-    var pts = data.recipe_points || [];
-    var dropped = pts.filter(function (c) { return !(c.cost_usd > 0); });
-    if (dropped.length) {
-      console.warn("hero: dropped " + dropped.length + " point(s) with cost_usd<=0 (log axis can't show them)");
-    }
-    pts = pts.filter(function (c) { return c.cost_usd > 0; });
+  function renderHero(recipePoints, pareto) {
+    var pts = (recipePoints || []).filter(function (c) { return c.cost_usd > 0; });
     var hero = echarts.init(document.getElementById("hero"));
     hero.setOption({
       grid: { left: 56, right: 24, top: 24, bottom: 48 },
@@ -132,7 +142,7 @@ function toCSV(cells) {
         {
           type: "line", symbol: "none", silent: true,
           lineStyle: { type: "dashed", color: "#9ca3af" },
-          data: (data.pareto || []).filter(function (p) { return p.cost_usd > 0; })
+          data: (pareto || []).filter(function (p) { return p.cost_usd > 0; })
                   .map(function (p) { return [p.cost_usd, p.accuracy]; })
         }
       ]
@@ -140,8 +150,8 @@ function toCSV(cells) {
     return hero;
   }
 
-  function renderHeatmap(data) {
-    var cells = data.cells || [];
+  function renderHeatmap(cells) {
+    cells = cells || [];
     var types = [];
     var recipes = [];
     cells.forEach(function (c) {
