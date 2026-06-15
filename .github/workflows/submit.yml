@@ -1,0 +1,40 @@
+name: Validate submission
+
+on:
+  pull_request:
+    paths:
+      - "submissions/**"
+
+jobs:
+  regrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: Re-grade changed submissions against held-out gold
+        env:
+          GOLD_DECRYPT_KEY: ${{ secrets.GOLD_DECRYPT_KEY }}
+          # Pass through env, not inline in run: — never interpolate ${{ }} straight
+          # into the shell (command-injection antipattern). Reference "$BASE_REF" below.
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          # Find submission dirs touched by this PR.
+          git fetch origin "$BASE_REF" --depth=1
+          changed=$(git diff --name-only "origin/$BASE_REF"...HEAD -- 'submissions/**' \
+            | sed -E 's#(submissions/[^/]+/[^/]+)/.*#\1#' | sort -u)
+          if [ -z "$changed" ]; then echo "no submission dirs changed"; exit 0; fi
+          for dir in $changed; do
+            echo "::group::$dir"
+            suite=$(python -c "import json,sys; print(json.load(open('$dir/manifest.json'))['suite'])")
+            python scripts/decrypt_gold.py --suite "$suite"
+            python scripts/validate_manifest.py "$dir/manifest.json"
+            python scripts/regrade.py \
+              --manifest "$dir/manifest.json" \
+              --outputs "$dir/outputs.jsonl" \
+              --gold "gold/$suite.jsonl"
+            echo "::endgroup::"
+          done
