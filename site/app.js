@@ -105,7 +105,14 @@ function toCSV(cells) {
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(function (data) {
       ALL = data.cells || [];
+      state.filters = parseHash();
+      buildControls();
       update();
+      window.addEventListener("hashchange", function () {
+        applyingHash = true;                  // suppress writeHash while applying external hash
+        state.filters = parseHash(); buildControls(); update();
+        applyingHash = false;
+      });
       window.addEventListener("resize", function () {
         charts.forEach(function (c) { if (c) c.resize(); });
       });
@@ -122,6 +129,113 @@ function toCSV(cells) {
     var pts = aggregateRecipePoints(cells);
     var pareto = paretoFrontierJS(pts);
     charts = [renderHero(pts, pareto), renderHeatmap(cells)];
+  }
+
+  var TASK_TYPES = ["code", "deep_research", "multihop_qa", "math", "factual"];
+  var SORTS = ["worthiness", "accuracy", "cost", "recipe"];
+  var applyingHash = false;
+  var hashTimer = null;
+
+  function parseHash() {
+    var h = (location.hash || "").replace(/^#/, "");
+    var p = {};
+    h.split("&").forEach(function (kv) {
+      var i = kv.indexOf("=");
+      if (i > 0) p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1));
+    });
+    var f = { type: "", maxcost: Infinity, minacc: 0, sort: "worthiness" };
+    if (TASK_TYPES.indexOf(p.type) >= 0) f.type = p.type;
+    if (p.maxcost && !isNaN(parseFloat(p.maxcost))) f.maxcost = parseFloat(p.maxcost);
+    if (p.minacc && !isNaN(parseFloat(p.minacc))) f.minacc = parseFloat(p.minacc);
+    if (SORTS.indexOf(p.sort) >= 0) f.sort = p.sort;
+    return f;
+  }
+
+  function writeHash() {
+    if (applyingHash) return;                 // don't write back while applying a hash
+    var f = state.filters, parts = [];
+    if (f.type) parts.push("type=" + f.type);
+    if (f.maxcost !== Infinity) parts.push("maxcost=" + f.maxcost);
+    if (f.minacc > 0) parts.push("minacc=" + f.minacc);
+    if (f.sort !== "worthiness") parts.push("sort=" + f.sort);
+    var hash = parts.length ? "#" + parts.join("&") : "";
+    if (location.hash !== hash) {
+      history.replaceState(null, "", hash || (location.pathname + location.search));
+    }
+  }
+
+  function writeHashDebounced() {
+    if (hashTimer) clearTimeout(hashTimer);
+    hashTimer = setTimeout(writeHash, 200);
+  }
+
+  function costBounds() {
+    var costs = ALL.map(function (c) { return c.cost_usd; }).filter(function (x) { return x > 0; });
+    return { min: Math.min.apply(null, costs), max: Math.max.apply(null, costs) };
+  }
+
+  function buildControls() {
+    var box = document.getElementById("filters");
+    if (!box) return;
+    box.textContent = "";
+    var cb = costBounds();
+
+    var typeSel = document.createElement("select");
+    [""].concat(TASK_TYPES).forEach(function (t) {
+      var o = document.createElement("option"); o.value = t; o.textContent = t || "all types";
+      if (t === state.filters.type) o.selected = true; typeSel.appendChild(o);
+    });
+    typeSel.onchange = function () { state.filters.type = typeSel.value; update(); writeHash(); };
+
+    var maxc = document.createElement("input");
+    maxc.type = "range"; maxc.min = cb.min; maxc.max = cb.max;
+    maxc.step = (cb.max - cb.min) / 100 || 0.0001;
+    maxc.value = state.filters.maxcost === Infinity ? cb.max : state.filters.maxcost;
+    var maxcLbl = document.createElement("span");
+    maxcLbl.textContent = "≤ $" + Number(maxc.value).toFixed(4);
+    maxc.oninput = function () {
+      state.filters.maxcost = parseFloat(maxc.value);
+      maxcLbl.textContent = "≤ $" + parseFloat(maxc.value).toFixed(4);
+      update(); writeHashDebounced();
+    };
+
+    var minacc = document.createElement("input");
+    minacc.type = "range"; minacc.min = 0; minacc.max = 1; minacc.step = 0.01;
+    minacc.value = state.filters.minacc;
+    var minaccLbl = document.createElement("span");
+    minaccLbl.textContent = "acc ≥ " + Math.round(state.filters.minacc * 100) + "%";
+    minacc.oninput = function () {
+      state.filters.minacc = parseFloat(minacc.value);
+      minaccLbl.textContent = "acc ≥ " + Math.round(parseFloat(minacc.value) * 100) + "%";
+      update(); writeHashDebounced();
+    };
+
+    var sortSel = document.createElement("select");
+    SORTS.forEach(function (s) {
+      var o = document.createElement("option"); o.value = s; o.textContent = "sort: " + s;
+      if (s === state.filters.sort) o.selected = true; sortSel.appendChild(o);
+    });
+    sortSel.onchange = function () { state.filters.sort = sortSel.value; update(); writeHash(); };
+
+    var reset = document.createElement("button");
+    reset.textContent = "Reset";
+    reset.onclick = function () {
+      state.filters = { type: "", maxcost: Infinity, minacc: 0, sort: "worthiness" };
+      buildControls(); update(); writeHash();
+    };
+
+    [labelWrap("type", typeSel), labelWrap("max cost", maxc, maxcLbl),
+     labelWrap("min acc", minacc, minaccLbl), labelWrap("", sortSel), reset]
+      .forEach(function (el) { box.appendChild(el); });
+  }
+
+  function labelWrap(text) {
+    var wrap = document.createElement("label");
+    wrap.style.display = "inline-flex"; wrap.style.alignItems = "center";
+    wrap.style.gap = "6px"; wrap.style.fontSize = "13px"; wrap.style.color = "#6b7280";
+    if (text) { var t = document.createElement("span"); t.textContent = text; wrap.appendChild(t); }
+    for (var i = 1; i < arguments.length; i++) wrap.appendChild(arguments[i]);
+    return wrap;
   }
 
   function renderHero(recipePoints, pareto) {

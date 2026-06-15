@@ -167,6 +167,7 @@ tr.rec td:first-child{{border-left:3px solid #0d9488}}
 <h1>{title}</h1>
 <p class="sub">When is multi-model fusion worth it — and which combo, per task type. {meta}</p>
 <div class="verdict">{verdict}</div>
+<div id="filters" class="card" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:8px"></div>
 <h2>Cost vs quality</h2>
 <div id="hero" class="card" style="height:420px"></div>
 <h2>Worthiness — recipe × task type</h2>
