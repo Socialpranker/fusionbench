@@ -99,6 +99,38 @@ def test_validate_manifest_rejects_missing_field(tmp_path):
     assert r.returncode != 0
 
 
+def _run_validate(manifest_path):
+    return subprocess.run(
+        [sys.executable, str(Path(__file__).parent.parent / "scripts" / "validate_manifest.py"),
+         str(manifest_path)],
+        capture_output=True, text=True,
+    )
+
+
+def test_validate_manifest_rejects_bool_n(tmp_path):
+    # isinstance(True, int) is True — a manifest with "n": true would otherwise pass the
+    # type gate, and True > 0 also passes the range gate, forging a "valid" sample count.
+    man = _honest_manifest()
+    man["claimed"]["n"] = True
+    p = tmp_path / "bool_n.json"
+    p.write_text(json.dumps(man))
+    r = _run_validate(p)
+    assert r.returncode != 0, "bool n must be rejected\n" + r.stdout + r.stderr
+    assert "n" in (r.stdout + r.stderr).lower()
+
+
+def test_validate_manifest_rejects_bool_accuracy(tmp_path):
+    # accuracy: true -> True, and 0.0 <= True <= 1.0 is True, so the range gate misses it.
+    # bool is a subclass of int; an accuracy must be a real number, never a boolean.
+    man = _honest_manifest()
+    man["claimed"]["accuracy"] = True
+    p = tmp_path / "bool_accuracy.json"
+    p.write_text(json.dumps(man))
+    r = _run_validate(p)
+    assert r.returncode != 0, "bool accuracy must be rejected\n" + r.stdout + r.stderr
+    assert "accuracy" in (r.stdout + r.stderr).lower()
+
+
 # --- Anti-cheat coverage: re-grade must score the FULL held-out slice, not a
 # submitter-chosen subset, and must reject duplicate gold_ids. Without these guards a
 # submitter cherry-picks the rows their run got right (or pads with duplicates of one

@@ -43,6 +43,11 @@ def main() -> None:
     for key, typ in _CLAIMED_REQUIRED.items():
         if key not in claimed:
             sys.exit(f"manifest.claimed missing {key!r}")
+        # bool is a subclass of int, so isinstance(True, int) and isinstance(True, float)
+        # are both True — a JSON `true` would slip past the type and range gates below
+        # ("n": true -> True > 0, "accuracy": true -> 0 <= True <= 1). Reject it explicitly.
+        if isinstance(claimed[key], bool):
+            sys.exit(f"manifest.claimed.{key} must not be a boolean")
         if not isinstance(claimed[key], typ):
             sys.exit(f"manifest.claimed.{key} must be {typ}, got {type(claimed[key]).__name__}")
 
