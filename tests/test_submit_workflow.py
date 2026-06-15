@@ -30,6 +30,15 @@ def _extract_suite_assignment():
     raise AssertionError("no `suite=...manifest.json...` line found in submit.yml")
 
 
+def _extract_sed_pipe():
+    """The `sed -E ...` line that collapses changed file paths to submission dirs."""
+    for line in _workflow_text().splitlines():
+        stripped = line.strip()
+        if stripped.startswith("| sed -E") or stripped.startswith("sed -E"):
+            return stripped.lstrip("| ").rstrip(")")
+    raise AssertionError("no `sed -E` line found in submit.yml")
+
+
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash required")
 def test_suite_extraction_is_not_command_injectable(tmp_path):
     # An attacker controls the submission path. They commit a directory whose name closes
@@ -155,4 +164,58 @@ def test_three_dot_diff_needs_merge_base(tmp_path):
     assert r.stdout.strip() == "submissions/b/run2/manifest.json", (
         "full-history three-dot diff should list exactly the PR's submission, got: "
         + repr(r.stdout)
+    )
+
+
+def test_loop_guards_against_missing_manifest():
+    # The loop body must skip a $dir with no manifest.json. Without the guard, a docs PR
+    # touching submissions/README.md (3 segments — sed's >=4-segment pattern leaves it
+    # untouched) or a deleted/renamed submission (stale path in the diff) makes the loop
+    # open a nonexistent manifest, and set -e fails CI on otherwise-valid input.
+    text = _workflow_text()
+    in_loop = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("for dir in"):
+            in_loop = True
+        if in_loop and "manifest.json" in stripped and "-f" in stripped and "continue" in stripped:
+            return
+    raise AssertionError(
+        "loop must guard `[ -f \"$dir/manifest.json\" ] || continue` — otherwise a "
+        "short path (submissions/README.md) or a deleted submission crashes CI under set -e"
+    )
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash required")
+def test_sed_plus_guard_filters_non_submission_paths(tmp_path):
+    # Behavioural: run the workflow's own sed pipe over a realistic changed-files list, then
+    # apply the guard, and confirm only real submission dirs survive. README.md and a deleted
+    # submission must drop out without error; the valid submission must be kept.
+    (tmp_path / "submissions" / "a" / "run1").mkdir(parents=True)
+    (tmp_path / "submissions" / "a" / "run1" / "manifest.json").write_text("{}")
+    (tmp_path / "submissions" / "README.md").write_text("docs")
+    # submissions/old/gone/manifest.json is NOT created — simulates a deleted submission whose
+    # path still appears in `git diff --name-only`.
+
+    changed_files = (
+        "submissions/README.md\n"
+        "submissions/a/run1/manifest.json\n"
+        "submissions/a/run1/outputs.jsonl\n"
+        "submissions/old/gone/manifest.json\n"
+    )
+    sed_pipe = _extract_sed_pipe()
+    script = (
+        f"set -euo pipefail\n"
+        f'changed=$(printf %s "$1" | {sed_pipe} | sort -u)\n'
+        f"for dir in $changed; do\n"
+        f'  [ -f "$dir/manifest.json" ] || continue\n'
+        f'  echo "$dir"\n'
+        f"done\n"
+    )
+    r = subprocess.run(["bash", "-c", script, "bash", changed_files],
+                       capture_output=True, text=True, cwd=tmp_path)
+    assert r.returncode == 0, "guarded loop must not fail on README/deleted paths\n" + r.stderr
+    processed = r.stdout.split()
+    assert processed == ["submissions/a/run1"], (
+        "only the real submission dir should be processed, got: " + repr(processed)
     )
