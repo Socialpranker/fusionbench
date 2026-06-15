@@ -4,10 +4,12 @@
 // ===== DERIVE: pure functions (filter / aggregate / pareto / csv) =====
 // Shared by the browser IIFE below and by node unit tests (UMD export at EOF).
 function applyFilters(cells, f) {
+  var maxcost = f.maxcost !== undefined ? f.maxcost : Infinity;  // missing bound = no limit
+  var minacc = f.minacc !== undefined ? f.minacc : 0;
   var out = cells.filter(function (c) {
     return (!f.type || c.type === f.type) &&
-           c.cost_usd <= f.maxcost &&
-           c.accuracy >= f.minacc;
+           c.cost_usd <= maxcost &&
+           c.accuracy >= minacc;
   });
   var sort = f.sort || "worthiness";
   out.sort(function (a, b) {
@@ -28,7 +30,7 @@ function aggregateRecipePoints(cells) {
     var rs = byRecipe[name];
     var acc = rs.reduce(function (s, c) { return s + c.accuracy; }, 0) / rs.length;
     var cost = rs.reduce(function (s, c) { return s + c.cost_usd; }, 0) / rs.length;
-    return { recipe: name, arm: rs[0].arm, accuracy: acc, cost_usd: cost };
+    return { recipe: name, arm: rs[0].arm, accuracy: acc, cost_usd: cost };  // assumes recipe↔arm is 1:1
   });
 }
 
