@@ -138,7 +138,7 @@ def compl_bars(by_type: dict[str, list[dict]]) -> str:
 PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title}</title><style>
-:root{{color-scheme:light}}
+:root{{color-scheme:light dark}}
 *{{box-sizing:border-box}}
 body{{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#111827;background:#f8fafc;margin:0;line-height:1.55}}
 .wrap{{max-width:880px;margin:0 auto;padding:40px 24px 80px}}
@@ -163,6 +163,16 @@ tr.rec td:first-child{{border-left:3px solid #0d9488}}
 .foot{{color:#9ca3af;font-size:12.5px;margin-top:40px;border-top:1px solid #e5e7eb;padding-top:14px}}
 .legend{{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:#6b7280;margin:8px 0 0}}
 .dot{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}}
+@media (prefers-color-scheme: dark){{
+  body{{background:#0f1419;color:#e5e7eb}}
+  .sub,.foot,.bar-label,.bar-val,.legend{{color:#9ca3af}}
+  .card,table{{background:#1a1f2e;border-color:#374151}}
+  th{{background:#161b26;color:#9ca3af}}
+  th,td{{border-color:#374151}}
+  .verdict{{background:#0f2a1e;border-color:#14532d;color:#a7f3d0}}
+  tr.rec{{background:#0f2a26}}
+  #filters select,#filters input,button{{background:#1a1f2e;color:#e5e7eb;border:1px solid #374151}}
+}}
 </style></head><body><div class="wrap">
 <h1>{title}</h1>
 <p class="sub">When is multi-model fusion worth it — and which combo, per task type. {meta}</p>

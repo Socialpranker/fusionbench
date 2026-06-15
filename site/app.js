@@ -98,6 +98,13 @@ function toCSV(cells) {
     charts = [];
   }
 
+  function isDark() { return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches; }
+  function axisColors() {
+    return isDark()
+      ? { axis: "#9ca3af", text: "#e5e7eb", split: "#374151" }
+      : { axis: "#6b7280", text: "#111827", split: "#e5e7eb" };
+  }
+
   if (typeof echarts === "undefined") {
     // CDN unavailable while JS is on: <noscript> won't fire, so just message the container.
     fail("Charts unavailable (ECharts failed to load).");
@@ -116,6 +123,9 @@ function toCSV(cells) {
       buildControls();
       wireExport();
       update();
+      if (window.matchMedia) {
+        matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { update(); });
+      }
       window.addEventListener("hashchange", function () {
         if (hashTimer) { clearTimeout(hashTimer); hashTimer = null; }  // cancel pending slider write
         applyingHash = true;                  // suppress writeHash while applying external hash
@@ -254,10 +264,17 @@ function toCSV(cells) {
     var hero = echarts.init(el);
     hero.setOption({
       grid: { left: 56, right: 24, top: 24, bottom: 48 },
-      xAxis: { type: "log", name: "cost per task ($)", nameLocation: "middle", nameGap: 30 },
+      xAxis: { type: "log", name: "cost per task ($)", nameLocation: "middle", nameGap: 30,
+               axisLine: { lineStyle: { color: axisColors().axis } },
+               axisLabel: { color: axisColors().text },
+               splitLine: { lineStyle: { color: axisColors().split } },
+               nameTextStyle: { color: axisColors().text } },
       yAxis: {
         type: "value", name: "accuracy", min: 0, max: 1,
-        axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; } }
+        axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; }, color: axisColors().text },
+        axisLine: { lineStyle: { color: axisColors().axis } },
+        splitLine: { lineStyle: { color: axisColors().split } },
+        nameTextStyle: { color: axisColors().text }
       },
       tooltip: {
         formatter: function (p) {
@@ -310,8 +327,8 @@ function toCSV(cells) {
                  ": " + (p.value[2] > 0 ? "+" : "") + Math.round(p.value[2] * 100) + "%";
         }
       },
-      xAxis: { type: "category", data: recipes, axisLabel: { rotate: 30 } },
-      yAxis: { type: "category", data: types },
+      xAxis: { type: "category", data: recipes, axisLabel: { rotate: 30, color: axisColors().text } },
+      yAxis: { type: "category", data: types, axisLabel: { color: axisColors().text } },
       visualMap: {
         min: -0.1, max: 0.1, calculable: true, orient: "horizontal",
         left: "center", bottom: 0,
@@ -339,9 +356,16 @@ function toCSV(cells) {
     var maxN = Math.max.apply(null, cells.map(function (c) { return c.n || 1; }).concat([1]));
     ec.setOption({
       grid: { left: 56, right: 24, top: 24, bottom: 48 },
-      xAxis: { type: "log", name: "cost per task ($)", nameLocation: "middle", nameGap: 30 },
+      xAxis: { type: "log", name: "cost per task ($)", nameLocation: "middle", nameGap: 30,
+               axisLine: { lineStyle: { color: axisColors().axis } },
+               axisLabel: { color: axisColors().text },
+               splitLine: { lineStyle: { color: axisColors().split } },
+               nameTextStyle: { color: axisColors().text } },
       yAxis: { type: "value", name: "accuracy", min: 0, max: 1,
-               axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; } } },
+               axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; }, color: axisColors().text },
+               axisLine: { lineStyle: { color: axisColors().axis } },
+               splitLine: { lineStyle: { color: axisColors().split } },
+               nameTextStyle: { color: axisColors().text } },
       tooltip: {
         // ECharts renders formatter strings as HTML; data is build-controlled, not user input.
         formatter: function (p) {
