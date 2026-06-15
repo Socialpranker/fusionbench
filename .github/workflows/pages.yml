@@ -26,12 +26,14 @@ jobs:
       - name: Ensure catalog data
         run: |
           shopt -s nullglob
-          files=(runs/*.jsonl)
+          # Only catalog files — NOT runs/outputs.jsonl (raw per-task outputs for CI re-grade,
+          # a different schema without task_type; the build glob below must not pick it up).
+          files=(runs/catalog*.jsonl)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "no committed runs -> generating illustrative mock catalog"
+            echo "no committed catalog -> generating illustrative mock catalog"
             python scripts/run_v0.py --mock --limit 100 --out runs/catalog_demo.jsonl
           fi
-      - run: python scripts/build_catalog.py --runs "runs/*.jsonl" --out site/index.html
+      - run: python scripts/build_catalog.py --runs "runs/catalog*.jsonl" --out site/index.html
       - run: touch site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
