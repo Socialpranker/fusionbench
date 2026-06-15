@@ -174,6 +174,7 @@ tr.rec td:first-child{{border-left:3px solid #0d9488}}
   #filters select,#filters input,button{{background:#1a1f2e;color:#e5e7eb;border:1px solid #374151}}
 }}
 </style></head><body><div class="wrap">
+<div class="nav" style="margin:0 0 16px;font-size:14px"><a href="leaderboard.html" style="color:#0d9488;text-decoration:none">Contributor leaderboard →</a></div>
 <h1>{title}</h1>
 <p class="sub">When is multi-model fusion worth it — and which combo, per task type. {meta}</p>
 <div class="verdict">{verdict}</div>
