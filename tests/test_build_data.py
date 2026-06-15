@@ -96,3 +96,22 @@ def test_build_data_json_serializable_and_null_complementarity():
     json.dumps(d)                                           # must not raise
     cell = next(c for c in d["cells"] if c["recipe"] == "best-single" and c["type"] == "multihop_qa")
     assert cell["complementarity"] is None                 # null passthrough
+
+
+def test_main_writes_data_json_and_index(tmp_path):
+    out_html = tmp_path / "index.html"
+    out_json = tmp_path / "data.json"
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT),
+         "--runs", str(ROOT / "runs" / "catalog.jsonl"),
+         "--out", str(out_html)],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert out_html.exists() and out_json.exists()          # data.json sits next to index.html
+    data = json.loads(out_json.read_text())                 # valid JSON
+    assert data["cells"] and data["recipe_points"]
+    html_text = out_html.read_text()
+    assert "<noscript>" in html_text                        # SVG fallback present
+    assert "echarts" in html_text.lower()                   # ECharts wired
+    assert "app.js" in html_text                            # app.js referenced

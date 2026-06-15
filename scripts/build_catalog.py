@@ -167,16 +167,24 @@ tr.rec td:first-child{{border-left:3px solid #0d9488}}
 <h1>{title}</h1>
 <p class="sub">When is multi-model fusion worth it — and which combo, per task type. {meta}</p>
 <div class="verdict">{verdict}</div>
-{sections}
 <h2>Cost vs quality</h2>
+<div id="hero" class="card" style="height:420px"></div>
+<h2>Worthiness — recipe × task type</h2>
+<div id="heatmap" class="card" style="height:420px"></div>
+<noscript>
+{sections}
+<h2>Cost vs quality (static)</h2>
 <div class="card">{scatter}<div class="legend">{legend}</div></div>
 <h2>Panel complementarity by task type</h2>
-<div class="card">{bars}<p style="color:#6b7280;font-size:12.5px;margin:12px 0 0">Higher = panel members fail on different items (errors decorrelate) — the precondition for fusion to beat a single model.</p></div>
+<div class="card">{bars}</div>
+</noscript>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="app.js"></script>
 <p class="foot">{foot}</p>
 </div></body></html>"""
 
 
-def render(rows: list[dict], title: str) -> str:
+def render_fallback(rows: list[dict], title: str) -> str:
     by_type: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_type[r["task_type"]].append(r)
@@ -320,8 +328,10 @@ def main():
         raise SystemExit("no catalog rows found; run scripts/run_v0.py first")
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(rows, args.title), encoding="utf-8")
-    print(f"wrote {out} from {len(rows)} deduped rows across "
+    out.write_text(render_fallback(rows, args.title), encoding="utf-8")
+    data_path = out.parent / "data.json"
+    data_path.write_text(json.dumps(build_data(rows), ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"wrote {out} and {data_path} from {len(rows)} deduped rows across "
           f"{len(set(r['task_type'] for r in rows))} task types")
 
 
