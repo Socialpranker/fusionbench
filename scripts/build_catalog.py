@@ -58,6 +58,19 @@ def worth_color(w: float) -> str:
     return "#6b7280"
 
 
+def pareto_frontier(by_recipe: dict[str, dict]) -> list[dict]:
+    """Non-dominated cost-quality points: sort by cost asc, keep strictly rising accuracy.
+    Input: name -> {acc, cost, ...}. Output: [{"cost_usd", "accuracy"}] sorted by cost asc."""
+    pts = sorted(by_recipe.values(), key=lambda v: v["cost"])
+    front: list[dict] = []
+    best_a = -1.0
+    for v in pts:
+        if v["acc"] > best_a + 1e-9:
+            front.append({"cost_usd": v["cost"], "accuracy": v["acc"]})
+            best_a = v["acc"]
+    return front
+
+
 def svg_scatter(by_recipe: dict[str, dict]) -> str:
     """Aggregate cost-quality scatter with a Pareto frontier. by_recipe: name -> {acc,cost,arm}."""
     if not by_recipe:
@@ -84,12 +97,8 @@ def svg_scatter(by_recipe: dict[str, dict]) -> str:
                  f'fill="#6b7280">cost per task ($) -></text>')
     parts.append(f'<text x="18" y="{H/2}" text-anchor="middle" font-size="13" fill="#6b7280" '
                  f'transform="rotate(-90 18 {H/2})">accuracy -></text>')
-    # frontier (upper-left envelope): sort by cost asc, keep rising accuracy
-    pts = sorted(by_recipe.items(), key=lambda kv: kv[1]["cost"])
-    front, best_a = [], -1
-    for nm, v in pts:
-        if v["acc"] > best_a + 1e-9:
-            front.append((v["cost"], v["acc"])); best_a = v["acc"]
+    # frontier (upper-left envelope) via shared pareto_frontier
+    front = [(p["cost_usd"], p["accuracy"]) for p in pareto_frontier(by_recipe)]
     if len(front) >= 2:
         poly = " ".join(f"{X(c):.1f},{Y(a):.1f}" for c, a in front)
         parts.append(f'<polyline points="{poly}" fill="none" stroke="#9ca3af" '
@@ -129,7 +138,7 @@ def compl_bars(by_type: dict[str, list[dict]]) -> str:
 PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title}</title><style>
-:root{{color-scheme:light}}
+:root{{color-scheme:light dark}}
 *{{box-sizing:border-box}}
 body{{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#111827;background:#f8fafc;margin:0;line-height:1.55}}
 .wrap{{max-width:880px;margin:0 auto;padding:40px 24px 80px}}
@@ -154,20 +163,46 @@ tr.rec td:first-child{{border-left:3px solid #0d9488}}
 .foot{{color:#9ca3af;font-size:12.5px;margin-top:40px;border-top:1px solid #e5e7eb;padding-top:14px}}
 .legend{{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:#6b7280;margin:8px 0 0}}
 .dot{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}}
+@media (prefers-color-scheme: dark){{
+  body{{background:#0f1419;color:#e5e7eb}}
+  .sub,.foot,.bar-label,.bar-val,.legend{{color:#9ca3af}}
+  .card,table{{background:#1a1f2e;border-color:#374151}}
+  th{{background:#161b26;color:#9ca3af}}
+  th,td{{border-color:#374151}}
+  .verdict{{background:#0f2a1e;border-color:#14532d;color:#a7f3d0}}
+  tr.rec{{background:#0f2a26}}
+  #filters select,#filters input,button{{background:#1a1f2e;color:#e5e7eb;border:1px solid #374151}}
+}}
 </style></head><body><div class="wrap">
 <h1>{title}</h1>
 <p class="sub">When is multi-model fusion worth it — and which combo, per task type. {meta}</p>
 <div class="verdict">{verdict}</div>
-{sections}
+<div id="filters" class="card" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:8px"></div>
 <h2>Cost vs quality</h2>
+<div id="hero" class="card" style="height:420px"></div>
+<h2>Worthiness — recipe × task type</h2>
+<div id="heatmap" class="card" style="height:420px"></div>
+<h2>Explorer</h2>
+<div style="margin:8px 0">
+  <button id="dl-csv">Скачать CSV</button>
+  <button id="dl-json">Скачать JSON</button>
+</div>
+<div id="explorer-chart" class="card" style="height:420px"></div>
+<div id="explorer-table" class="card" style="overflow-x:auto"></div>
+<noscript>
+{sections}
+<h2>Cost vs quality (static)</h2>
 <div class="card">{scatter}<div class="legend">{legend}</div></div>
 <h2>Panel complementarity by task type</h2>
-<div class="card">{bars}<p style="color:#6b7280;font-size:12.5px;margin:12px 0 0">Higher = panel members fail on different items (errors decorrelate) — the precondition for fusion to beat a single model.</p></div>
+<div class="card">{bars}</div>
+</noscript>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="app.js"></script>
 <p class="foot">{foot}</p>
 </div></body></html>"""
 
 
-def render(rows: list[dict], title: str) -> str:
+def render_fallback(rows: list[dict], title: str) -> str:
     by_type: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_type[r["task_type"]].append(r)
@@ -228,6 +263,82 @@ def render(rows: list[dict], title: str) -> str:
                        legend=legend, bars=compl_bars(by_type), foot=foot)
 
 
+def build_data(rows: list[dict]) -> dict:
+    """Emit the site/data.json contract from catalog rows. Pure: no I/O.
+
+    Expects already-deduplicated rows (one per suite/task_type/recipe, as produced by
+    dedupe()); the recommended flag assumes a recipe appears at most once per task_type."""
+    suites = sorted({r["suite"] for r in rows if r.get("suite")})
+
+    # recipes: name -> arm (first seen), stable by name
+    recipe_arm: dict[str, str] = {}
+    for r in rows:
+        recipe_arm.setdefault(r["recipe"], r["arm"])
+    recipes = [{"name": n, "arm": a} for n, a in sorted(recipe_arm.items())]
+
+    # recommended flag: best (-accuracy, mean_cost_usd) per task_type
+    by_type: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        by_type[r["task_type"]].append(r)
+    rec_keys: set[tuple] = set()
+    for ttype, rs in by_type.items():
+        rec = recommended(rs)
+        rec_keys.add((ttype, rec["recipe"]))
+
+    cells = []
+    for r in rows:
+        cells.append({
+            "type": r["task_type"],
+            "recipe": r["recipe"],
+            "arm": r["arm"],
+            "accuracy": r["accuracy"],
+            "cost_usd": r["mean_cost_usd"],
+            "latency_s": r["mean_latency_s"],
+            "worthiness_vs_best": r["worthiness_vs_best"],
+            "worthiness_vs_self_moa": r["worthiness_vs_self_moa"],
+            "complementarity": r.get("complementarity"),
+            "recommended": (r["task_type"], r["recipe"]) in rec_keys,
+            "n": r["n_tasks"],
+        })
+
+    # recipe_points / pareto: mean cost/accuracy per recipe across task types (hero scatter).
+    # app.js recomputes these in JS from the filtered cells; kept here for the noscript SVG
+    # fallback and as a stable data.json contract (JS no longer reads these two fields).
+    agg: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        agg[r["recipe"]].append(r)
+    recipe_points = []
+    by_recipe_for_front: dict[str, dict] = {}
+    for nm, rs in sorted(agg.items()):
+        acc = sum(x["accuracy"] for x in rs) / len(rs)
+        cost = sum(x["mean_cost_usd"] for x in rs) / len(rs)
+        arm = rs[0]["arm"]
+        recipe_points.append({"recipe": nm, "arm": arm, "accuracy": acc, "cost_usd": cost})
+        by_recipe_for_front[nm] = {"acc": acc, "cost": cost, "arm": arm}
+
+    pareto = pareto_frontier(by_recipe_for_front)
+
+    # complementarity passthrough (emitted for the next stage; not drawn in core).
+    # Shape is {type, recipe, value} — a per-recipe scalar, NOT the spec's pairwise
+    # {a, b, type, value}: CatalogRow stores one complementarity scalar + a panel list,
+    # not pairwise model values. The pairwise form is a next-stage (explorer) concern.
+    complementarity = []
+    for r in rows:
+        if r.get("complementarity") is not None:
+            complementarity.append({"type": r["task_type"], "recipe": r["recipe"],
+                                    "value": r["complementarity"]})
+
+    return {
+        "generated": time.strftime("%Y-%m-%d"),
+        "suites": suites,
+        "recipes": recipes,
+        "cells": cells,
+        "recipe_points": recipe_points,
+        "pareto": pareto,
+        "complementarity": complementarity,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", nargs="*", default=["runs/*.jsonl"])
@@ -240,8 +351,10 @@ def main():
         raise SystemExit("no catalog rows found; run scripts/run_v0.py first")
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(rows, args.title), encoding="utf-8")
-    print(f"wrote {out} from {len(rows)} deduped rows across "
+    out.write_text(render_fallback(rows, args.title), encoding="utf-8")
+    data_path = out.parent / "data.json"
+    data_path.write_text(json.dumps(build_data(rows), ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"wrote {out} and {data_path} from {len(rows)} deduped rows across "
           f"{len(set(r['task_type'] for r in rows))} task types")
 
 
