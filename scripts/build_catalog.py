@@ -238,9 +238,10 @@ def render(rows: list[dict], title: str) -> str:
 
 
 def build_data(rows: list[dict]) -> dict:
-    """Emit the site/data.json contract from catalog rows. Pure: no I/O."""
-    from collections import defaultdict
+    """Emit the site/data.json contract from catalog rows. Pure: no I/O.
 
+    Expects already-deduplicated rows (one per suite/task_type/recipe, as produced by
+    dedupe()); the recommended flag assumes a recipe appears at most once per task_type."""
     suites = sorted({r["suite"] for r in rows if r.get("suite")})
 
     # recipes: name -> arm (first seen), stable by name
