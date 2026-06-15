@@ -1,6 +1,70 @@
 // site/app.js — renders hero-Pareto and heatmap from data.json via ECharts.
 // Pure view layer: all numbers are precomputed in data.json by build_catalog.py.
+
+// ===== DERIVE: pure functions (filter / aggregate / pareto / csv) =====
+// Shared by the browser IIFE below and by node unit tests (UMD export at EOF).
+function applyFilters(cells, f) {
+  var out = cells.filter(function (c) {
+    return (!f.type || c.type === f.type) &&
+           c.cost_usd <= f.maxcost &&
+           c.accuracy >= f.minacc;
+  });
+  var sort = f.sort || "worthiness";
+  out.sort(function (a, b) {
+    if (sort === "recipe") return a.recipe < b.recipe ? -1 : a.recipe > b.recipe ? 1 : 0;
+    if (sort === "cost") return a.cost_usd - b.cost_usd;            // cheapest first
+    if (sort === "accuracy") return b.accuracy - a.accuracy;        // best first
+    return b.worthiness_vs_best - a.worthiness_vs_best;             // worthiness: best first
+  });
+  return out;
+}
+
+function aggregateRecipePoints(cells) {
+  var byRecipe = {};
+  cells.forEach(function (c) {
+    (byRecipe[c.recipe] = byRecipe[c.recipe] || []).push(c);
+  });
+  return Object.keys(byRecipe).sort().map(function (name) {
+    var rs = byRecipe[name];
+    var acc = rs.reduce(function (s, c) { return s + c.accuracy; }, 0) / rs.length;
+    var cost = rs.reduce(function (s, c) { return s + c.cost_usd; }, 0) / rs.length;
+    return { recipe: name, arm: rs[0].arm, accuracy: acc, cost_usd: cost };
+  });
+}
+
+function paretoFrontierJS(points) {
+  var pts = points.slice().sort(function (a, b) { return a.cost_usd - b.cost_usd; });
+  var front = [];
+  var bestA = -1;
+  pts.forEach(function (v) {
+    if (v.accuracy > bestA + 1e-9) {
+      front.push({ cost_usd: v.cost_usd, accuracy: v.accuracy });
+      bestA = v.accuracy;
+    }
+  });
+  return front;
+}
+
+var CSV_COLS = ["type", "recipe", "arm", "accuracy", "cost_usd", "latency_s",
+  "worthiness_vs_best", "worthiness_vs_self_moa", "complementarity", "recommended", "n"];
+
+function csvCell(v) {
+  if (v === null || v === undefined) return "";
+  var s = String(v);
+  if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function toCSV(cells) {
+  var head = CSV_COLS.join(",");
+  var rows = cells.map(function (c) {
+    return CSV_COLS.map(function (k) { return csvCell(c[k]); }).join(",");
+  });
+  return head + "\n" + rows.join("\n") + "\n";
+}
+
 (function () {
+  if (typeof document === "undefined") return; // not a browser — skip IIFE (node UMD load)
   var ARM_COLOR = {
     best_single: "#6b7280", self_moa: "#2563eb",
     fusion: "#0d9488", source_pool: "#7c3aed"
@@ -116,3 +180,9 @@
     return hm;
   }
 })();
+
+// UMD export for node unit tests (browser ignores this).
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { applyFilters: applyFilters, aggregateRecipePoints: aggregateRecipePoints,
+                     paretoFrontierJS: paretoFrontierJS, toCSV: toCSV };
+}
