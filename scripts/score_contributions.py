@@ -137,7 +137,7 @@ def main():
 
     out_html = Path(args.out_html)
     out_html.parent.mkdir(parents=True, exist_ok=True)
-    out_html.write_text(render_leaderboard_html(), encoding="utf-8")  # template added in Task 4
+    out_html.write_text(render_leaderboard_html(), encoding="utf-8")
     print(f"wrote {args.out_json} ({len(lb['contributors'])} contributors) and {args.out_html}")
 
 
