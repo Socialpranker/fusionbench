@@ -14,6 +14,11 @@ runs/
 *.jsonl.local
 .DS_Store
 
+# Local verification artifacts (Playwright screenshots / MCP scratch) — not committed.
+.playwright-mcp/
+/leaderboard-light.png
+/leaderboard-dark.png
+
 # Plaintext gold answer keys — only the .enc form is committed.
 gold/*.jsonl
 !gold/.gitkeep
