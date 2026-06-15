@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "run_id": "ruler_mock_12",
+  "submitted_by": "fixture",
+  "suite": "ruler",
+  "grader": "Synthetic@1",
+  "client_commit": "fixture",
+  "claimed": {
+    "recipe": "fusion-strong",
+    "accuracy": 0.3333,
+    "cost_usd": 0.00662837,
+    "n": 12
+  }
+}

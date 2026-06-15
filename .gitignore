@@ -8,3 +8,7 @@ site/
 runs/
 *.jsonl.local
 .DS_Store
+
+# Plaintext gold answer keys — only the .enc form is committed.
+gold/*.jsonl
+!gold/.gitkeep

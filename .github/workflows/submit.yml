@@ -1,0 +1,55 @@
+name: Validate submission
+
+on:
+  pull_request:
+    paths:
+      - "submissions/**"
+
+jobs:
+  regrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the three-dot diff below needs the merge-base of base and HEAD.
+          # On the default shallow clone (depth 1) the merge-base is unreachable — the diff
+          # either dies (set -e fails a valid PR) or returns empty (anti-cheat silently
+          # skipped, letting a padded submission merge green).
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: Re-grade changed submissions against held-out gold
+        env:
+          GOLD_DECRYPT_KEY: ${{ secrets.GOLD_DECRYPT_KEY }}
+          # Pass through env, not inline in run: — never interpolate ${{ }} straight
+          # into the shell (command-injection antipattern). Reference "$BASE_REF" below.
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          # Find submission dirs touched by this PR. Full fetch (no --depth) so the
+          # three-dot merge-base resolves; a shallow base would break it.
+          git fetch origin "$BASE_REF"
+          changed=$(git diff --name-only "origin/$BASE_REF"...HEAD -- 'submissions/**' \
+            | sed -E 's#(submissions/[^/]+/[^/]+)/.*#\1#' | sort -u)
+          if [ -z "$changed" ]; then echo "no submission dirs changed"; exit 0; fi
+          for dir in $changed; do
+            # Skip paths with no manifest: docs files like submissions/README.md (3 segments,
+            # sed's >=4-segment pattern leaves them whole) and deleted/renamed submissions
+            # (stale path still in the diff). Without this, set -e fails CI on valid input.
+            [ -f "$dir/manifest.json" ] || { echo "skip $dir (no manifest.json)"; continue; }
+            echo "::group::$dir"
+            # Validate (suite allowlist via REGISTRY + claimed-field checks) BEFORE decrypt:
+            # decrypt_gold.py runs with GOLD_DECRYPT_KEY, so no unvetted suite may reach it.
+            python scripts/validate_manifest.py "$dir/manifest.json"
+            # Read suite via argv, never interpolate $dir into `python -c` — an attacker
+            # controls the path and a crafted dir name would otherwise run code on the runner.
+            suite=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["suite"])' "$dir/manifest.json")
+            python scripts/decrypt_gold.py --suite "$suite"
+            python scripts/regrade.py \
+              --manifest "$dir/manifest.json" \
+              --outputs "$dir/outputs.jsonl" \
+              --gold "gold/$suite.jsonl"
+            echo "::endgroup::"
+          done
