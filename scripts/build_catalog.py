@@ -301,7 +301,9 @@ def build_data(rows: list[dict]) -> dict:
             "n": r["n_tasks"],
         })
 
-    # recipe_points: mean cost/accuracy per recipe across task types (hero scatter)
+    # recipe_points / pareto: mean cost/accuracy per recipe across task types (hero scatter).
+    # app.js recomputes these in JS from the filtered cells; kept here for the noscript SVG
+    # fallback and as a stable data.json contract (JS no longer reads these two fields).
     agg: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         agg[r["recipe"]].append(r)

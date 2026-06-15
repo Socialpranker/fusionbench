@@ -1,5 +1,6 @@
-// site/app.js — renders hero-Pareto and heatmap from data.json via ECharts.
-// Pure view layer: all numbers are precomputed in data.json by build_catalog.py.
+// site/app.js — interactive catalog: hero-Pareto, heatmap, explorer from data.json via ECharts.
+// Per-cell numbers come from data.json (build_catalog.py); recipe_points/pareto are recomputed
+// in JS from the filtered cells (so all views react to the global filter without a server round-trip).
 
 // ===== DERIVE: pure functions (filter / aggregate / pareto / csv) =====
 // Shared by the browser IIFE below and by node unit tests (UMD export at EOF).
@@ -213,8 +214,9 @@ function toCSV(cells) {
     var maxcLbl = document.createElement("span");
     maxcLbl.textContent = "≤ $" + Number(maxc.value).toFixed(4);
     maxc.oninput = function () {
-      state.filters.maxcost = parseFloat(maxc.value);
-      maxcLbl.textContent = "≤ $" + parseFloat(maxc.value).toFixed(4);
+      var v = parseFloat(maxc.value);
+      state.filters.maxcost = v >= cb.max ? Infinity : v;  // at max = "no limit" → keeps hash clean
+      maxcLbl.textContent = "≤ $" + v.toFixed(4);
       update(); writeHashDebounced();
     };
 
