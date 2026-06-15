@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "run_id": "frames_demo_1",
+  "submitted_by": "mira_k",
+  "suite": "frames",
+  "claimed": {"recipe": "fusion-strong", "accuracy": 0.71, "cost_usd": 0.0044, "n": 150},
+  "notes": "illustrative seed contribution (mock)"
+}

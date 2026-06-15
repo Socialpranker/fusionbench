@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "run_id": "ruler_demo_1",
+  "submitted_by": "mira_k",
+  "suite": "ruler",
+  "claimed": {"recipe": "best-single", "accuracy": 0.62, "cost_usd": 0.0009, "n": 120},
+  "notes": "illustrative seed contribution (mock)"
+}
