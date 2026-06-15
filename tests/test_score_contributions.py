@@ -1,4 +1,5 @@
 # tests/test_score_contributions.py
+import json
 import sys
 from pathlib import Path
 
@@ -75,3 +76,21 @@ def test_null_run_id_sorts_as_empty():
     lb = sc.score_contributions(subs, now="2026-06-15")
     pts = {c["user"]: c["points"] for c in lb["contributors"]}
     assert pts == {"ned": 20.0, "alice": 10.0}
+
+
+def test_load_submissions_reads_manifests(tmp_path):
+    # build a fake submissions tree in tmp_path (hermetic — no real submissions/)
+    d = tmp_path / "submissions" / "alice" / "r1"
+    d.mkdir(parents=True)
+    (d / "manifest.json").write_text(json.dumps(_man("alice", "frames", "fusion", "r1")))
+    bad = tmp_path / "submissions" / "bob" / "r2"
+    bad.mkdir(parents=True)
+    (bad / "manifest.json").write_text("{ not json")        # malformed → skipped, no crash
+    subs = sc.load_submissions(tmp_path / "submissions")
+    users = sorted(m["submitted_by"] for m in subs)
+    assert users == ["alice"]                                # bob's broken json dropped
+
+
+def test_load_submissions_missing_dir(tmp_path):
+    subs = sc.load_submissions(tmp_path / "nope")            # absent dir → empty, no crash
+    assert subs == []
