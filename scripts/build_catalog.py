@@ -58,6 +58,19 @@ def worth_color(w: float) -> str:
     return "#6b7280"
 
 
+def pareto_frontier(by_recipe: dict[str, dict]) -> list[dict]:
+    """Non-dominated cost-quality points: sort by cost asc, keep strictly rising accuracy.
+    Input: name -> {acc, cost, ...}. Output: [{"cost_usd", "accuracy"}] sorted by cost asc."""
+    pts = sorted(by_recipe.values(), key=lambda v: v["cost"])
+    front: list[dict] = []
+    best_a = -1.0
+    for v in pts:
+        if v["acc"] > best_a + 1e-9:
+            front.append({"cost_usd": v["cost"], "accuracy": v["acc"]})
+            best_a = v["acc"]
+    return front
+
+
 def svg_scatter(by_recipe: dict[str, dict]) -> str:
     """Aggregate cost-quality scatter with a Pareto frontier. by_recipe: name -> {acc,cost,arm}."""
     if not by_recipe:
@@ -84,12 +97,8 @@ def svg_scatter(by_recipe: dict[str, dict]) -> str:
                  f'fill="#6b7280">cost per task ($) -></text>')
     parts.append(f'<text x="18" y="{H/2}" text-anchor="middle" font-size="13" fill="#6b7280" '
                  f'transform="rotate(-90 18 {H/2})">accuracy -></text>')
-    # frontier (upper-left envelope): sort by cost asc, keep rising accuracy
-    pts = sorted(by_recipe.items(), key=lambda kv: kv[1]["cost"])
-    front, best_a = [], -1
-    for nm, v in pts:
-        if v["acc"] > best_a + 1e-9:
-            front.append((v["cost"], v["acc"])); best_a = v["acc"]
+    # frontier (upper-left envelope) via shared pareto_frontier
+    front = [(p["cost_usd"], p["accuracy"]) for p in pareto_frontier(by_recipe)]
     if len(front) >= 2:
         poly = " ".join(f"{X(c):.1f},{Y(a):.1f}" for c, a in front)
         parts.append(f'<polyline points="{poly}" fill="none" stroke="#9ca3af" '
