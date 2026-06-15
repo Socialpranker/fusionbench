@@ -81,10 +81,15 @@ function toCSV(cells) {
 
   // Recoverable "no rows under current filter" — distinct from fatal fail() (CDN/404).
   function showEmpty(msg) {
-    disposeCharts();                            // also clears orphaned canvases in both containers
+    disposeCharts();                            // also clears orphaned canvases
     ["hero", "heatmap"].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) { el.textContent = msg; el.style.color = "#6b7280"; el.style.padding = "16px"; }
+    });
+    // clear explorer too, so a stale table can't look current vs an empty export.
+    ["explorer-chart", "explorer-table"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = "";
     });
   }
 
@@ -338,6 +343,7 @@ function toCSV(cells) {
       yAxis: { type: "value", name: "accuracy", min: 0, max: 1,
                axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; } } },
       tooltip: {
+        // ECharts renders formatter strings as HTML; data is build-controlled, not user input.
         formatter: function (p) {
           var c = p.data.cell;
           return c.recipe + " / " + c.type + "<br>acc " + Math.round(c.accuracy * 100) +
@@ -357,6 +363,7 @@ function toCSV(cells) {
 
     // table (createElement / textContent — no innerHTML)
     var cols = ["type", "recipe", "arm", "accuracy", "cost_usd", "worthiness_vs_best", "complementarity", "n"];
+    var SORT_COL = { accuracy: "accuracy", cost_usd: "cost", worthiness_vs_best: "worthiness", recipe: "recipe" };
     var host = document.getElementById("explorer-table");
     host.textContent = "";
     var tbl = document.createElement("table");
@@ -364,11 +371,12 @@ function toCSV(cells) {
     var htr = document.createElement("tr");
     cols.forEach(function (k) {
       var th = document.createElement("th"); th.textContent = k;
-      th.style.cursor = "pointer";
-      th.onclick = function () {
-        var map = { accuracy: "accuracy", cost_usd: "cost", worthiness_vs_best: "worthiness", recipe: "recipe" };
-        if (map[k]) { state.filters.sort = map[k]; buildControls(); update(); writeHash(); }
-      };
+      if (SORT_COL[k]) {                       // only sortable columns get the affordance
+        th.style.cursor = "pointer";
+        th.onclick = function () {
+          state.filters.sort = SORT_COL[k]; buildControls(); update(); writeHash();
+        };
+      }
       htr.appendChild(th);
     });
     thead.appendChild(htr); tbl.appendChild(thead);
