@@ -99,11 +99,15 @@ def test_build_data_json_serializable_and_null_complementarity():
 
 
 def test_main_writes_data_json_and_index(tmp_path):
+    # Generate the runs file from _sample_rows() so the test is hermetic — runs/ is
+    # gitignored, so referencing runs/catalog.jsonl fails in CI (no such file checked out).
+    runs = tmp_path / "catalog.jsonl"
+    runs.write_text("".join(json.dumps(r) + "\n" for r in _sample_rows()))
     out_html = tmp_path / "index.html"
     out_json = tmp_path / "data.json"
     r = subprocess.run(
         [sys.executable, str(SCRIPT),
-         "--runs", str(ROOT / "runs" / "catalog.jsonl"),
+         "--runs", str(runs),
          "--out", str(out_html)],
         capture_output=True, text=True,
     )
