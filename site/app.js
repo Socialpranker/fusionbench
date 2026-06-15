@@ -79,6 +79,18 @@ function toCSV(cells) {
     });
   }
 
+  // Recoverable "no rows under current filter" — distinct from fatal fail() (CDN/404).
+  function showEmpty(msg) {
+    disposeCharts();
+    var el = document.getElementById("hero");
+    if (el) { el.textContent = msg; el.style.color = "#6b7280"; el.style.padding = "16px"; }
+  }
+
+  function disposeCharts() {
+    charts.forEach(function (c) { if (c && c.dispose) c.dispose(); });
+    charts = [];
+  }
+
   if (typeof echarts === "undefined") {
     // CDN unavailable while JS is on: <noscript> won't fire, so just message the container.
     fail("Charts unavailable (ECharts failed to load).");
@@ -103,10 +115,10 @@ function toCSV(cells) {
   function update() {
     var cells = applyFilters(ALL, state.filters);
     if (!cells.length) {
-      fail("Нет данных под текущий фильтр. Сбросьте фильтры.");
-      charts = [];
+      showEmpty("Нет данных под текущий фильтр. Сбросьте фильтры.");
       return;
     }
+    disposeCharts();                 // tear down prior instances before re-init on same nodes
     var pts = aggregateRecipePoints(cells);
     var pareto = paretoFrontierJS(pts);
     charts = [renderHero(pts, pareto), renderHeatmap(cells)];
@@ -114,7 +126,9 @@ function toCSV(cells) {
 
   function renderHero(recipePoints, pareto) {
     var pts = (recipePoints || []).filter(function (c) { return c.cost_usd > 0; });
-    var hero = echarts.init(document.getElementById("hero"));
+    var el = document.getElementById("hero");
+    el.textContent = "";                 // clear any prior showEmpty/fail message
+    var hero = echarts.init(el);
     hero.setOption({
       grid: { left: 56, right: 24, top: 24, bottom: 48 },
       xAxis: { type: "log", name: "cost per task ($)", nameLocation: "middle", nameGap: 30 },
@@ -161,7 +175,9 @@ function toCSV(cells) {
     var matrix = cells.map(function (c) {
       return [recipes.indexOf(c.recipe), types.indexOf(c.type), c.worthiness_vs_best];
     });
-    var hm = echarts.init(document.getElementById("heatmap"));
+    var hmEl = document.getElementById("heatmap");
+    hmEl.textContent = "";               // clear any prior showEmpty/fail message
+    var hm = echarts.init(hmEl);
     hm.setOption({
       grid: { left: 120, right: 24, top: 24, bottom: 60 },
       tooltip: {
