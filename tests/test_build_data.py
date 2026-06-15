@@ -1,6 +1,6 @@
 # tests/test_build_data.py
-import json
-import subprocess
+import json  # noqa: F401  # used by later tasks
+import subprocess  # noqa: F401  # used by later tasks
 import sys
 from pathlib import Path
 
@@ -8,7 +8,7 @@ ROOT = Path(__file__).parent.parent
 SCRIPT = ROOT / "scripts" / "build_catalog.py"
 sys.path.insert(0, str(ROOT / "scripts"))
 
-import build_catalog as bc
+import build_catalog as bc  # noqa: E402
 
 
 def test_pareto_frontier_keeps_nondominated():
