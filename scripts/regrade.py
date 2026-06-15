@@ -6,6 +6,18 @@
 Accuracy mismatch is a HARD failure (exit 1) — this is the anti-cheat core. Cost is a
 soft plausibility check (WARN, exit 0): model prices drift, so a hard cost gate would
 red-flag honest submissions. Uses sys.exit, never assert (assert is stripped by python -O).
+
+Trust model — what this gate DOES and does NOT stop:
+  - STOPS accuracy inflation in the manifest (re-grade vs gold catches it).
+  - STOPS cherry-picking: outputs must cover the ENTIRE gold slice (coverage check),
+    so a submitter cannot grade only the rows their run got right.
+  - STOPS padding: each gold_id may be graded at most once (duplicate check).
+  - Does NOT stop a forged `prediction`: the prediction string comes from the submitter
+    and graders are lenient by design (e.g. SyntheticGrader is a substring match), so a
+    submitter who knows the gold answer can write it into every prediction and forge a
+    pass. Defeating this needs a different trust root (client-signed outputs or
+    server-side execution), not a check here. Tracked as a known limitation; see
+    tests/test_regrade.py::test_forged_prediction_is_a_known_limitation.
 """
 from __future__ import annotations
 
@@ -53,15 +65,31 @@ def main() -> None:
 
     n = ok = 0
     recomputed_cost = 0.0
+    seen: set[str] = set()
     for r in outputs:
         gid = r["gold_id"]
         if gid not in gold:
             sys.exit(f"gold_id {gid!r} from outputs not found in gold file")
+        # HARD: a gold_id may be graded at most once. Without this a submitter pads the
+        # output set with copies of one correct row to hit any claimed n/accuracy.
+        if gid in seen:
+            sys.exit(f"duplicate gold_id {gid!r} in outputs (each may appear at most once)")
+        seen.add(gid)
         reference, metadata = gold_to_reference(suite, gold[gid])
         v = spec.grader.score(r["prediction"], reference, metadata)
         ok += int(v.passed)
         n += 1
         recomputed_cost += float(r.get("cost_usd", 0.0))
+
+    # HARD: the re-grade must cover the ENTIRE held-out slice, not a submitter-chosen
+    # subset. Accuracy over a cherry-picked set (only the rows the run got right) is the
+    # core cheat this gate exists to stop, so coverage is checked against gold, never
+    # against the manifest's own n.
+    missing = set(gold) - seen
+    if missing:
+        sample = ", ".join(sorted(missing)[:5])
+        more = "" if len(missing) <= 5 else f" (+{len(missing) - 5} more)"
+        sys.exit(f"coverage gap: {len(missing)} gold id(s) not graded by outputs: {sample}{more}")
 
     if n != claimed["n"]:
         sys.exit(f"n mismatch: manifest says {claimed['n']}, found {n} outputs")
