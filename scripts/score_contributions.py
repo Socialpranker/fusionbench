@@ -76,8 +76,47 @@ def load_submissions(submissions_dir):
     return out
 
 
+LEADERBOARD_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FusionBench — leaderboard</title>
+<style>
+:root{color-scheme:light dark}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#111827;background:#f8fafc;margin:0;line-height:1.55}
+.wrap{max-width:880px;margin:0 auto;padding:40px 24px 80px}
+h1{font-size:26px;font-weight:600;margin:0 0 4px}
+.sub{color:#6b7280;margin:0 0 24px}
+.nav{margin:0 0 20px;font-size:14px}
+.nav a{color:#0d9488;text-decoration:none}
+table{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #f1f5f9}
+th{background:#f8fafc;color:#6b7280;font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.bar-wrap{background:#f1f5f9;border-radius:999px;height:8px;overflow:hidden;min-width:80px}
+.bar-fill{display:block;height:100%;background:#0d9488}
+.foot{color:#9ca3af;font-size:12.5px;margin-top:40px;border-top:1px solid #e5e7eb;padding-top:14px}
+@media (prefers-color-scheme: dark){
+  body{background:#0f1419;color:#e5e7eb}
+  .sub,.foot{color:#9ca3af}
+  table{background:#1a1f2e;border-color:#374151}
+  th{background:#161b26;color:#9ca3af}
+  th,td{border-color:#374151}
+  .bar-wrap{background:#374151}
+}
+</style></head><body><div class="wrap">
+<div class="nav"><a href="index.html">← Catalog</a></div>
+<h1>Contributor leaderboard</h1>
+<p class="sub">Points for verified contributions. Repeat cells decay (log). Relative ranking.</p>
+<div id="board"></div>
+<p class="foot" id="foot"></p>
+<script src="leaderboard.js"></script>
+</div></body></html>
+"""
+
+
 def render_leaderboard_html():
-    return ""   # replaced in Task 4 with the real template
+    return LEADERBOARD_PAGE
 
 
 def main():

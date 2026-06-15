@@ -9,6 +9,7 @@ __pycache__/
 # (contents), not site/ (the dir), or the !app.js re-include can't take effect.
 site/*
 !site/app.js
+!site/leaderboard.js
 runs/
 *.jsonl.local
 .DS_Store
