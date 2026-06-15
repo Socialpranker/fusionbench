@@ -4,7 +4,11 @@ __pycache__/
 .env
 .pytest_cache/
 *.egg-info/
-site/
+# site/ is build output (build_catalog.py generates index.html + data.json in CI).
+# Only app.js is a hand-written source — ignore the rest. Note: must ignore site/*
+# (contents), not site/ (the dir), or the !app.js re-include can't take effect.
+site/*
+!site/app.js
 runs/
 *.jsonl.local
 .DS_Store
