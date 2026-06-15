@@ -10,6 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the three-dot diff below needs the merge-base of base and HEAD.
+          # On the default shallow clone (depth 1) the merge-base is unreachable — the diff
+          # either dies (set -e fails a valid PR) or returns empty (anti-cheat silently
+          # skipped, letting a padded submission merge green).
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -22,8 +28,9 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          # Find submission dirs touched by this PR.
-          git fetch origin "$BASE_REF" --depth=1
+          # Find submission dirs touched by this PR. Full fetch (no --depth) so the
+          # three-dot merge-base resolves; a shallow base would break it.
+          git fetch origin "$BASE_REF"
           changed=$(git diff --name-only "origin/$BASE_REF"...HEAD -- 'submissions/**' \
             | sed -E 's#(submissions/[^/]+/[^/]+)/.*#\1#' | sort -u)
           if [ -z "$changed" ]; then echo "no submission dirs changed"; exit 0; fi

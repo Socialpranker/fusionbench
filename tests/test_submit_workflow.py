@@ -81,3 +81,78 @@ def test_suite_is_validated_against_registry_before_decrypt():
         "validate_manifest.py (suite allowlist) must run before decrypt_gold.py — "
         "otherwise an unvetted suite reaches the GOLD_DECRYPT_KEY step"
     )
+
+
+def test_checkout_fetches_full_history():
+    # The diff uses three-dot `origin/$BASE_REF...HEAD`, which needs the merge-base. With the
+    # default shallow checkout (depth=1) the merge-base is unreachable: the diff either dies
+    # (set -e kills the job on a valid PR) or returns empty (anti-cheat SILENTLY skipped, a
+    # padded submission merges green). checkout must fetch full history.
+    text = _workflow_text()
+    assert "fetch-depth: 0" in text, (
+        "actions/checkout must use fetch-depth: 0 — three-dot diff needs the merge-base, "
+        "unreachable on a shallow clone"
+    )
+
+
+def test_base_fetch_is_not_shallow():
+    # `git fetch origin "$BASE_REF" --depth=1` re-narrows the base to a single commit even if
+    # checkout fetched everything, again breaking the merge-base. The base fetch must be full.
+    for line in _workflow_text().splitlines():
+        stripped = line.strip()
+        if stripped.startswith("git fetch") and "BASE_REF" in stripped:
+            assert "--depth" not in stripped, (
+                "base fetch must not be shallow (--depth) — it breaks the three-dot "
+                f"merge-base: {stripped}"
+            )
+            break
+    else:
+        raise AssertionError("no `git fetch ... BASE_REF` line found in submit.yml")
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git required")
+def test_three_dot_diff_needs_merge_base(tmp_path):
+    # Behavioural proof of why full history matters: a shallow clone of only the PR branch
+    # cannot resolve origin/main...HEAD (no merge-base), while a full clone can. This is the
+    # mechanism the two config tests above guard against.
+    def git(*a, cwd, check=True):
+        return subprocess.run(["git", *a], cwd=cwd, capture_output=True, text=True, check=check)
+
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    git("init", "-q", "-b", "main", cwd=origin)
+    git("config", "user.email", "t@t.t", cwd=origin)
+    git("config", "user.name", "t", cwd=origin)
+    (origin / "README.md").write_text("base\n")
+    git("add", "-A", cwd=origin)
+    git("commit", "-q", "-m", "base1", cwd=origin)
+    git("checkout", "-q", "-b", "pr", cwd=origin)
+    sub = origin / "submissions" / "b" / "run2"
+    sub.mkdir(parents=True)
+    (sub / "manifest.json").write_text("{}")
+    git("add", "-A", cwd=origin)
+    git("commit", "-q", "-m", "pr adds submission", cwd=origin)
+    git("checkout", "-q", "main", cwd=origin)
+    (origin / "README.md").write_text("base\nmore\n")  # base moves ahead independently
+    git("add", "-A", cwd=origin)
+    git("commit", "-q", "-m", "base2", cwd=origin)
+
+    url = f"file://{origin}"
+
+    # Shallow clone of just the PR branch — like actions/checkout default + fetch --depth=1.
+    shallow = tmp_path / "shallow"
+    git("clone", "-q", "--depth=1", "--branch", "pr", url, str(shallow), cwd=tmp_path)
+    git("fetch", "-q", "origin", "main", "--depth=1", cwd=shallow)
+    r = git("diff", "--name-only", "origin/main...HEAD", "--", "submissions/**",
+            cwd=shallow, check=False)
+    assert r.returncode != 0, "expected shallow three-dot diff to fail on the missing merge-base"
+
+    # Full clone — like fetch-depth: 0.
+    full = tmp_path / "full"
+    git("clone", "-q", "--branch", "pr", url, str(full), cwd=tmp_path)
+    git("fetch", "-q", "origin", "main", cwd=full)
+    r = git("diff", "--name-only", "origin/main...HEAD", "--", "submissions/**", cwd=full)
+    assert r.stdout.strip() == "submissions/b/run2/manifest.json", (
+        "full-history three-dot diff should list exactly the PR's submission, got: "
+        + repr(r.stdout)
+    )
