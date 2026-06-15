@@ -23,12 +23,19 @@
     .catch(function (e) { fail("Could not load data.json: " + e.message); });
 
   function render(data) {
-    renderHero(data);
-    renderHeatmap(data);
+    var charts = [renderHero(data), renderHeatmap(data)];
+    window.addEventListener("resize", function () {
+      charts.forEach(function (c) { if (c) c.resize(); });
+    });
   }
 
   function renderHero(data) {
     var pts = data.recipe_points || [];
+    var dropped = pts.filter(function (c) { return !(c.cost_usd > 0); });
+    if (dropped.length) {
+      console.warn("hero: dropped " + dropped.length + " point(s) with cost_usd<=0 (log axis can't show them)");
+    }
+    pts = pts.filter(function (c) { return c.cost_usd > 0; });
     var hero = echarts.init(document.getElementById("hero"));
     hero.setOption({
       grid: { left: 56, right: 24, top: 24, bottom: 48 },
@@ -57,10 +64,12 @@
         {
           type: "line", symbol: "none", silent: true,
           lineStyle: { type: "dashed", color: "#9ca3af" },
-          data: (data.pareto || []).map(function (p) { return [p.cost_usd, p.accuracy]; })
+          data: (data.pareto || []).filter(function (p) { return p.cost_usd > 0; })
+                  .map(function (p) { return [p.cost_usd, p.accuracy]; })
         }
       ]
     });
+    return hero;
   }
 
   function renderHeatmap(data) {
@@ -77,7 +86,13 @@
     var hm = echarts.init(document.getElementById("heatmap"));
     hm.setOption({
       grid: { left: 120, right: 24, top: 24, bottom: 60 },
-      tooltip: { position: "top" },
+      tooltip: {
+        position: "top",
+        formatter: function (p) {
+          return recipes[p.value[0]] + " / " + types[p.value[1]] +
+                 ": " + (p.value[2] > 0 ? "+" : "") + Math.round(p.value[2] * 100) + "%";
+        }
+      },
       xAxis: { type: "category", data: recipes, axisLabel: { rotate: 30 } },
       yAxis: { type: "category", data: types },
       visualMap: {
@@ -96,5 +111,6 @@
         }
       }]
     });
+    return hm;
   }
 })();
