@@ -298,7 +298,10 @@ def build_data(rows: list[dict]) -> dict:
 
     pareto = pareto_frontier(by_recipe_for_front)
 
-    # complementarity passthrough (emitted for the next stage; not drawn in core)
+    # complementarity passthrough (emitted for the next stage; not drawn in core).
+    # Shape is {type, recipe, value} — a per-recipe scalar, NOT the spec's pairwise
+    # {a, b, type, value}: CatalogRow stores one complementarity scalar + a panel list,
+    # not pairwise model values. The pairwise form is a next-stage (explorer) concern.
     complementarity = []
     for r in rows:
         if r.get("complementarity") is not None:

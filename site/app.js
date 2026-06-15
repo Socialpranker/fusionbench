@@ -7,8 +7,10 @@
   };
 
   function fail(msg) {
-    var h = document.getElementById("hero");
-    if (h) { h.textContent = msg; h.style.color = "#6b7280"; h.style.padding = "16px"; }
+    ["hero", "heatmap"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) { el.textContent = msg; el.style.color = "#6b7280"; el.style.padding = "16px"; }
+    });
   }
 
   if (typeof echarts === "undefined") {
