@@ -28,8 +28,9 @@ def score_contributions(submissions, now):
     """submissions: iterable of manifest dicts. now: ISO date string (caller-supplied,
     not generated here — keeps output deterministic for tests). Returns leaderboard dict."""
     valid = [m for m in submissions if _valid(m)]
-    # deterministic order: by run_id (lexicographic), fallback "" so decay is stable
-    valid.sort(key=lambda m: str(m.get("run_id", "")))
+    # deterministic order: by run_id (lexicographic). `or ""` normalises both a
+    # missing key and an explicit null/empty run_id to "" so decay is stable.
+    valid.sort(key=lambda m: str(m.get("run_id") or ""))
 
     seen_cell = {}                       # cell_key -> how many prior submissions of that cell
     by_user = {}                         # user -> {"points": float, "verified": int, "cells": set}

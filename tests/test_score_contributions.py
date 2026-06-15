@@ -64,3 +64,14 @@ def test_malformed_manifest_skipped():
             {"suite": "frames", "claimed": {"recipe": "x"}}]  # no submitted_by → skipped
     lb = sc.score_contributions(subs, now="2026-06-15")
     assert [c["user"] for c in lb["contributors"]] == ["alice"]
+
+
+def test_null_run_id_sorts_as_empty():
+    # explicit JSON null run_id must normalise to "" (lowest), not "None".
+    # null sorts before "r1" → gets full 20; alice (r1) is second on the cell → 10.
+    null_man = _man("ned", "frames", "fusion", "r1")
+    null_man["run_id"] = None
+    subs = [_man("alice", "frames", "fusion", "r1"), null_man]
+    lb = sc.score_contributions(subs, now="2026-06-15")
+    pts = {c["user"]: c["points"] for c in lb["contributors"]}
+    assert pts == {"ned": 20.0, "alice": 10.0}
