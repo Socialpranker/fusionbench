@@ -86,3 +86,8 @@ make site      # rebuild site/index.html from runs/*.jsonl
 - **The prefilter** currently needs a small labeled probe slice (focal diversity / error Jaccard). A label-free predictor for generation tasks is the open research stretch.
 
 See `docs/DESIGN.md` for the full reasoning and sources.
+
+## Submitting a run
+
+See [submissions/README.md](submissions/README.md). CI re-grades your saved
+`outputs.jsonl` against a private gold key; an inflated accuracy fails the check.
