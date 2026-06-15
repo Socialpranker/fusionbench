@@ -81,9 +81,11 @@ function toCSV(cells) {
 
   // Recoverable "no rows under current filter" — distinct from fatal fail() (CDN/404).
   function showEmpty(msg) {
-    disposeCharts();
-    var el = document.getElementById("hero");
-    if (el) { el.textContent = msg; el.style.color = "#6b7280"; el.style.padding = "16px"; }
+    disposeCharts();                            // also clears orphaned canvases in both containers
+    ["hero", "heatmap"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) { el.textContent = msg; el.style.color = "#6b7280"; el.style.padding = "16px"; }
+    });
   }
 
   function disposeCharts() {
@@ -109,6 +111,7 @@ function toCSV(cells) {
       buildControls();
       update();
       window.addEventListener("hashchange", function () {
+        if (hashTimer) { clearTimeout(hashTimer); hashTimer = null; }  // cancel pending slider write
         applyingHash = true;                  // suppress writeHash while applying external hash
         state.filters = parseHash(); buildControls(); update();
         applyingHash = false;
@@ -225,7 +228,7 @@ function toCSV(cells) {
     };
 
     [labelWrap("type", typeSel), labelWrap("max cost", maxc, maxcLbl),
-     labelWrap("min acc", minacc, minaccLbl), labelWrap("", sortSel), reset]
+     labelWrap("min acc", minacc, minaccLbl), labelWrap("sort by", sortSel), reset]
       .forEach(function (el) { box.appendChild(el); });
   }
 
