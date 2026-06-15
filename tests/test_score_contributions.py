@@ -94,3 +94,37 @@ def test_load_submissions_reads_manifests(tmp_path):
 def test_load_submissions_missing_dir(tmp_path):
     subs = sc.load_submissions(tmp_path / "nope")            # absent dir → empty, no crash
     assert subs == []
+
+
+def test_load_submissions_non_utf8_skipped(tmp_path):
+    # a manifest in a non-UTF-8 encoding must be skipped (UnicodeDecodeError),
+    # not crash the whole run.
+    ok = tmp_path / "submissions" / "alice" / "r1"
+    ok.mkdir(parents=True)
+    (ok / "manifest.json").write_text(json.dumps(_man("alice", "frames", "fusion", "r1")))
+    bad = tmp_path / "submissions" / "bad" / "r2"
+    bad.mkdir(parents=True)
+    (bad / "manifest.json").write_bytes(b'{"submitted_by": "\xff\xfe broken"}')  # invalid UTF-8
+    subs = sc.load_submissions(tmp_path / "submissions")
+    assert sorted(m["submitted_by"] for m in subs) == ["alice"]
+
+
+def test_main_end_to_end(tmp_path, monkeypatch):
+    # exercise the full CLI path (read → score → write json+html). Guards against
+    # regressions like render_leaderboard_html being unreachable at runtime.
+    d = tmp_path / "submissions" / "alice" / "r1"
+    d.mkdir(parents=True)
+    (d / "manifest.json").write_text(json.dumps(_man("alice", "frames", "fusion", "r1")))
+    out_json = tmp_path / "site" / "leaderboard.json"
+    out_html = tmp_path / "site" / "leaderboard.html"
+    monkeypatch.setattr(sys, "argv", [
+        "score_contributions.py",
+        "--submissions", str(tmp_path / "submissions"),
+        "--out-json", str(out_json), "--out-html", str(out_html),
+        "--now", "2026-06-15",
+    ])
+    sc.main()
+    data = json.loads(out_json.read_text(encoding="utf-8"))
+    assert data == {"updated": "2026-06-15", "contributors": [
+        {"user": "alice", "points": 20.0, "verified": 1, "cells": ["frames×fusion"]}]}
+    assert out_html.exists()                                  # html written, no NameError

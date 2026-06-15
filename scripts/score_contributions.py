@@ -67,10 +67,17 @@ def load_submissions(submissions_dir):
         return out
     for mf in sorted(root.glob("*/*/manifest.json")):
         try:
-            out.append(json.loads(mf.read_text()))
-        except (OSError, json.JSONDecodeError) as e:
+            # JSON is UTF-8 per RFC 8259; pin it so a non-UTF-8 CI locale can't
+            # mis-decode (UnicodeDecodeError is also caught here, so it skips
+            # rather than crashing).
+            out.append(json.loads(mf.read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
             print(f"WARN: skipping {mf}: {e}", file=sys.stderr)
     return out
+
+
+def render_leaderboard_html():
+    return ""   # replaced in Task 4 with the real template
 
 
 def main():
@@ -86,15 +93,14 @@ def main():
 
     out_json = Path(args.out_json)
     out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_json.write_text(json.dumps(lb, ensure_ascii=False, indent=2) + "\n")
+    out_json.write_text(json.dumps(lb, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8")
 
-    Path(args.out_html).write_text(render_leaderboard_html())   # template added in Task 4
+    out_html = Path(args.out_html)
+    out_html.parent.mkdir(parents=True, exist_ok=True)
+    out_html.write_text(render_leaderboard_html(), encoding="utf-8")  # template added in Task 4
     print(f"wrote {args.out_json} ({len(lb['contributors'])} contributors) and {args.out_html}")
 
 
 if __name__ == "__main__":
     main()
-
-
-def render_leaderboard_html():
-    return ""   # replaced in Task 4 with the real template
