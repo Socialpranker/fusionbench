@@ -34,6 +34,10 @@ jobs:
             python scripts/run_v0.py --mock --limit 100 --out runs/catalog_demo.jsonl
           fi
       - run: python scripts/build_catalog.py --runs "runs/catalog*.jsonl" --out site/index.html
+      - name: Build contributor leaderboard
+        # --now comes from CI `date` (UTC), not generated in Python, to keep the
+        # scoring core deterministic. Static command, no untrusted input → no injection.
+        run: python scripts/score_contributions.py --submissions submissions --out-json site/leaderboard.json --out-html site/leaderboard.html --now "$(date -u +%Y-%m-%d)"
       - run: touch site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

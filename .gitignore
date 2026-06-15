@@ -9,9 +9,15 @@ __pycache__/
 # (contents), not site/ (the dir), or the !app.js re-include can't take effect.
 site/*
 !site/app.js
+!site/leaderboard.js
 runs/
 *.jsonl.local
 .DS_Store
+
+# Local verification artifacts (Playwright screenshots / MCP scratch) — not committed.
+.playwright-mcp/
+/leaderboard-light.png
+/leaderboard-dark.png
 
 # Plaintext gold answer keys — only the .enc form is committed.
 gold/*.jsonl
