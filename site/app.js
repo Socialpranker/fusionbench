@@ -262,19 +262,20 @@ function toCSV(cells) {
     var el = document.getElementById("hero");
     el.textContent = "";                 // clear any prior showEmpty/fail message
     var hero = echarts.init(el);
+    var tc = axisColors();               // read theme once per render
     hero.setOption({
       grid: { left: 56, right: 24, top: 24, bottom: 48 },
       xAxis: { type: "log", name: "cost per task ($)", nameLocation: "middle", nameGap: 30,
-               axisLine: { lineStyle: { color: axisColors().axis } },
-               axisLabel: { color: axisColors().text },
-               splitLine: { lineStyle: { color: axisColors().split } },
-               nameTextStyle: { color: axisColors().text } },
+               axisLine: { lineStyle: { color: tc.axis } },
+               axisLabel: { color: tc.text },
+               splitLine: { lineStyle: { color: tc.split } },
+               nameTextStyle: { color: tc.text } },
       yAxis: {
         type: "value", name: "accuracy", min: 0, max: 1,
-        axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; }, color: axisColors().text },
-        axisLine: { lineStyle: { color: axisColors().axis } },
-        splitLine: { lineStyle: { color: axisColors().split } },
-        nameTextStyle: { color: axisColors().text }
+        axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; }, color: tc.text },
+        axisLine: { lineStyle: { color: tc.axis } },
+        splitLine: { lineStyle: { color: tc.split } },
+        nameTextStyle: { color: tc.text }
       },
       tooltip: {
         formatter: function (p) {
@@ -318,6 +319,7 @@ function toCSV(cells) {
     var hmEl = document.getElementById("heatmap");
     hmEl.textContent = "";               // clear any prior showEmpty/fail message
     var hm = echarts.init(hmEl);
+    var tc = axisColors();               // read theme once per render
     hm.setOption({
       grid: { left: 120, right: 24, top: 24, bottom: 60 },
       tooltip: {
@@ -327,8 +329,8 @@ function toCSV(cells) {
                  ": " + (p.value[2] > 0 ? "+" : "") + Math.round(p.value[2] * 100) + "%";
         }
       },
-      xAxis: { type: "category", data: recipes, axisLabel: { rotate: 30, color: axisColors().text } },
-      yAxis: { type: "category", data: types, axisLabel: { color: axisColors().text } },
+      xAxis: { type: "category", data: recipes, axisLabel: { rotate: 30, color: tc.text } },
+      yAxis: { type: "category", data: types, axisLabel: { color: tc.text } },
       visualMap: {
         min: -0.1, max: 0.1, calculable: true, orient: "horizontal",
         left: "center", bottom: 0,
@@ -353,19 +355,20 @@ function toCSV(cells) {
     var chartEl = document.getElementById("explorer-chart");
     chartEl.textContent = "";
     var ec = echarts.init(chartEl);
+    var tc = axisColors();               // read theme once per render
     var maxN = Math.max.apply(null, cells.map(function (c) { return c.n || 1; }).concat([1]));
     ec.setOption({
       grid: { left: 56, right: 24, top: 24, bottom: 48 },
       xAxis: { type: "log", name: "cost per task ($)", nameLocation: "middle", nameGap: 30,
-               axisLine: { lineStyle: { color: axisColors().axis } },
-               axisLabel: { color: axisColors().text },
-               splitLine: { lineStyle: { color: axisColors().split } },
-               nameTextStyle: { color: axisColors().text } },
+               axisLine: { lineStyle: { color: tc.axis } },
+               axisLabel: { color: tc.text },
+               splitLine: { lineStyle: { color: tc.split } },
+               nameTextStyle: { color: tc.text } },
       yAxis: { type: "value", name: "accuracy", min: 0, max: 1,
-               axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; }, color: axisColors().text },
-               axisLine: { lineStyle: { color: axisColors().axis } },
-               splitLine: { lineStyle: { color: axisColors().split } },
-               nameTextStyle: { color: axisColors().text } },
+               axisLabel: { formatter: function (v) { return Math.round(v * 100) + "%"; }, color: tc.text },
+               axisLine: { lineStyle: { color: tc.axis } },
+               splitLine: { lineStyle: { color: tc.split } },
+               nameTextStyle: { color: tc.text } },
       tooltip: {
         // ECharts renders formatter strings as HTML; data is build-controlled, not user input.
         formatter: function (p) {
