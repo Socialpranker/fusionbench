@@ -51,3 +51,36 @@ def test_sort_worthiness_desc_nulls_last():
 
 def test_empty_input_returns_empty():
     assert tr.filter_catalog([], type="", maxcost=1.0, minacc=0.0, sort="accuracy") == []
+
+
+def test_to_leaderboard_df_columns():
+    lb = {"contributors": [
+        {"user": "alice", "points": 20.0, "verified": 1, "cells": ["frames×fusion"]},
+    ]}
+    headers, rows = tr.to_leaderboard_df(lb)
+    assert headers == ["#", "user", "points", "verified", "cells"]
+    assert rows[0] == [1, "alice", 20.0, 1, "frames×fusion"]
+
+
+def test_to_leaderboard_df_empty():
+    headers, rows = tr.to_leaderboard_df({"contributors": []})
+    assert headers == ["#", "user", "points", "verified", "cells"]
+    assert rows == []
+
+
+def test_to_catalog_df_columns_and_order():
+    headers, rows = tr.to_catalog_df(_cells()[:1])
+    assert headers == ["type", "recipe", "arm", "accuracy", "cost_usd",
+                       "worthiness_vs_best", "complementarity", "n"]
+    assert rows[0][0] == "code" and rows[0][1] == "best-single"
+
+
+def test_slider_bounds_from_cells():
+    b = tr.slider_bounds(_cells())
+    assert b["maxcost"] == 0.010   # max cost across cells
+    assert b["minacc"] == 0.0      # accuracy slider always starts at 0
+
+
+def test_slider_bounds_empty_defaults():
+    b = tr.slider_bounds([])
+    assert b["maxcost"] == 1.0 and b["minacc"] == 0.0
