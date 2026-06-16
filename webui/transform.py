@@ -58,6 +58,14 @@ def to_catalog_df(cells):
     return _CATALOG_HEADERS, rows
 
 
+def project_catalog_rows(cells):
+    """Project cells onto the visible catalog columns (dicts, for CSV/JSON export).
+
+    Keeps export in sync with what the catalog table shows.
+    """
+    return [{h: c.get(h) for h in _CATALOG_HEADERS} for c in cells]
+
+
 def slider_bounds(cells):
     """Safe slider ranges from data: maxcost = max observed cost (or 1.0), minacc = 0.0."""
     costs = [c["cost_usd"] for c in cells if c.get("cost_usd") is not None]

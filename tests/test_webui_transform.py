@@ -84,3 +84,15 @@ def test_slider_bounds_from_cells():
 def test_slider_bounds_empty_defaults():
     b = tr.slider_bounds([])
     assert b["maxcost"] == 1.0 and b["minacc"] == 0.0
+
+
+def test_project_catalog_rows_keeps_only_visible_columns():
+    raw = [{"type": "code", "recipe": "best-single", "arm": "best_single",
+            "accuracy": 0.9, "cost_usd": 0.001, "worthiness_vs_best": 0.0,
+            "complementarity": None, "n": 12,
+            "recommended": True, "worthiness_vs_self_moa": 0.0, "latency_s": 0.0}]
+    out = tr.project_catalog_rows(raw)
+    assert list(out[0].keys()) == ["type", "recipe", "arm", "accuracy", "cost_usd",
+                                   "worthiness_vs_best", "complementarity", "n"]
+    assert "recommended" not in out[0]
+    assert "latency_s" not in out[0]

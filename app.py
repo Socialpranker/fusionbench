@@ -6,6 +6,8 @@ Set FUSIONBENCH_DATA_DIR=examples for the bundled demo fixtures.
 """
 from __future__ import annotations
 
+import tempfile
+
 import gradio as gr
 
 from webui import data_loader as dl
@@ -59,25 +61,25 @@ def build_demo():
                         dl_csv = gr.DownloadButton("Download CSV")
                         dl_json = gr.DownloadButton("Download JSON")
 
-                    def on_filter(cells_, type_, maxcost_, minacc_, sort_):
-                        rows_, df_ = _catalog_view(cells_, type_, maxcost_, minacc_, sort_)
-                        return rows_, df_
-
                     inputs = [state, f_type, f_maxcost, f_minacc, f_sort]
                     for ctrl in (f_type, f_sort, f_maxcost, f_minacc):
-                        ctrl.change(on_filter, inputs=inputs, outputs=[filtered, table])
+                        ctrl.change(_catalog_view, inputs=inputs, outputs=[filtered, table])
 
                     def make_csv(rows_):
-                        path = "fusionbench_catalog.csv"
-                        with open(path, "wb") as fh:
-                            fh.write(ex.rows_to_csv_bytes(rows_))
-                        return path
+                        visible = tr.project_catalog_rows(rows_)
+                        fh = tempfile.NamedTemporaryFile(
+                            delete=False, suffix=".csv", prefix="fusionbench_catalog_")
+                        fh.write(ex.rows_to_csv_bytes(visible))
+                        fh.close()
+                        return fh.name
 
                     def make_json(rows_):
-                        path = "fusionbench_catalog.json"
-                        with open(path, "wb") as fh:
-                            fh.write(ex.rows_to_json_bytes(rows_))
-                        return path
+                        visible = tr.project_catalog_rows(rows_)
+                        fh = tempfile.NamedTemporaryFile(
+                            delete=False, suffix=".json", prefix="fusionbench_catalog_")
+                        fh.write(ex.rows_to_json_bytes(visible))
+                        fh.close()
+                        return fh.name
 
                     dl_csv.click(make_csv, inputs=[filtered], outputs=[dl_csv])
                     dl_json.click(make_json, inputs=[filtered], outputs=[dl_json])
