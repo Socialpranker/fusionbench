@@ -13,6 +13,8 @@ dependencies = [
 dev = ["pytest>=8.0"]
 # v1 scale-out: wrap the arms as Inspect solvers for parallelism + logging.
 inspect = ["inspect-ai>=0.3"]
+# Phase 5: HF Space showcase (Gradio leaderboard + HF Datasets export). httpx reused from core.
+space = ["gradio>=4.44", "huggingface_hub>=0.25"]
 
 [build-system]
 requires = ["setuptools>=68"]
