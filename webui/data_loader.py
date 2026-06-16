@@ -5,6 +5,7 @@ structure so the UI shows an honest empty-state instead of crashing.
 """
 from __future__ import annotations
 
+import copy
 import json
 import os
 import sys
@@ -38,7 +39,7 @@ def _fetch_json_with_retry(url, attempts=3):
 
 def _load(filename):
     """Local FUSIONBENCH_DATA_DIR/<file>, else FUSIONBENCH_DATA_URL/<file>, else empty."""
-    empty = _EMPTY[filename]
+    empty = copy.deepcopy(_EMPTY[filename])  # fresh copy — never hand out the shared singleton
     data_dir = os.environ.get("FUSIONBENCH_DATA_DIR")
     if data_dir:
         path = os.path.join(data_dir, filename)

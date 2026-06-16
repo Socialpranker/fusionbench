@@ -65,3 +65,13 @@ def test_fetch_retries_then_gives_up(monkeypatch):
     out = dl._fetch_json_with_retry("https://example.test/x.json", attempts=3)
     assert out is None
     assert len(attempts_made) == 3
+
+
+def test_no_data_dir_uses_url(monkeypatch):
+    # prod/HF Space case: no local dir, only the Pages URL is set.
+    monkeypatch.delenv("FUSIONBENCH_DATA_DIR", raising=False)
+    monkeypatch.setenv("FUSIONBENCH_DATA_URL", "https://example.test/fb")
+    monkeypatch.setattr(dl, "_fetch_json_with_retry",
+                        lambda url, attempts=3: {"cells": [{"type": "code"}]})
+    out = dl.load_catalog()
+    assert out["cells"][0]["type"] == "code"
