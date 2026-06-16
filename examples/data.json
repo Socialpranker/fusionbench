@@ -1,0 +1,30 @@
+{
+  "generated": "2026-06-16",
+  "suites": ["browsecomp", "frames"],
+  "recipes": [
+    {"name": "best-single", "arm": "best_single"},
+    {"name": "fusion-strong", "arm": "fusion"}
+  ],
+  "cells": [
+    {"type": "code", "recipe": "best-single", "arm": "best_single", "accuracy": 0.9167,
+     "cost_usd": 0.001437, "latency_s": 0.0, "worthiness_vs_best": 0.0,
+     "worthiness_vs_self_moa": 0.0, "complementarity": null, "recommended": true, "n": 12},
+    {"type": "code", "recipe": "fusion-strong", "arm": "fusion", "accuracy": 0.9583,
+     "cost_usd": 0.010220, "latency_s": 0.0, "worthiness_vs_best": 0.0417,
+     "worthiness_vs_self_moa": 0.02, "complementarity": 0.917, "recommended": false, "n": 12},
+    {"type": "math", "recipe": "best-single", "arm": "best_single", "accuracy": 0.70,
+     "cost_usd": 0.002100, "latency_s": 0.0, "worthiness_vs_best": 0.0,
+     "worthiness_vs_self_moa": 0.0, "complementarity": null, "recommended": true, "n": 8}
+  ],
+  "recipe_points": [
+    {"recipe": "best-single", "arm": "best_single", "accuracy": 0.78, "cost_usd": 0.0017},
+    {"recipe": "fusion-strong", "arm": "fusion", "accuracy": 0.86, "cost_usd": 0.0102}
+  ],
+  "pareto": [
+    {"cost_usd": 0.0017, "accuracy": 0.78},
+    {"cost_usd": 0.0102, "accuracy": 0.86}
+  ],
+  "complementarity": [
+    {"type": "code", "recipe": "fusion-strong", "value": 0.917}
+  ]
+}
