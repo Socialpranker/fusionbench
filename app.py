@@ -14,6 +14,8 @@ from webui import data_loader as dl
 from webui import export as ex
 from webui import transform as tr
 
+# Kept in sync with fusionbench.presets.TASK_TYPES by hand: the HF Space ships only
+# app.py + webui/ (not the src-layout fusionbench package), so importing it would break there.
 TYPE_CHOICES = ["", "code", "deep_research", "multihop_qa", "math", "factual"]
 SORT_CHOICES = ["worthiness", "accuracy", "cost", "recipe"]
 
