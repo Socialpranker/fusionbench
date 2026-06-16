@@ -1,6 +1,6 @@
 [project]
 name = "fusionbench"
-version = "0.0.1"
+version = "0.1.0"
 description = "When is multi-model fusion actually worth it? A cost-aware harness + per-task-type recipe catalog."
 requires-python = ">=3.10"
 dependencies = [
