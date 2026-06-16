@@ -72,7 +72,7 @@ def test_to_catalog_df_columns_and_order():
     headers, rows = tr.to_catalog_df(_cells()[:1])
     assert headers == ["type", "recipe", "arm", "accuracy", "cost_usd",
                        "worthiness_vs_best", "complementarity", "n"]
-    assert rows[0][0] == "code" and rows[0][1] == "best-single"
+    assert rows[0] == ["code", "best-single", "best_single", 0.90, 0.001, 0.0, None, 12]
 
 
 def test_slider_bounds_from_cells():
