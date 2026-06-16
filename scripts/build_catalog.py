@@ -13,9 +13,17 @@ import argparse
 import glob
 import html
 import json
+import sys
 import time
 from collections import defaultdict
 from pathlib import Path
+
+# site_tokens.py lives next to this script; make sure it's importable when running
+# directly (python scripts/build_catalog.py) as well as from pytest (sys.path already set).
+_SCRIPTS_DIR = Path(__file__).parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+from site_tokens import TOKENS_CSS  # noqa: E402
 
 ARM_COLOR = {
     "best_single": "#6b7280", "self_moa": "#2563eb",
@@ -135,53 +143,62 @@ def compl_bars(by_type: dict[str, list[dict]]) -> str:
     return "".join(out)
 
 
-PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+# PAGE is split into three parts to safely embed TOKENS_CSS (which contains literal
+# CSS curly braces) without breaking str.format().  _make_page() concatenates them.
+_PAGE_HEAD = """\
+<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title}</title><style>
-:root{{color-scheme:light dark}}
-*{{box-sizing:border-box}}
-body{{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#111827;background:#f8fafc;margin:0;line-height:1.55}}
-.wrap{{max-width:880px;margin:0 auto;padding:40px 24px 80px}}
-h1{{font-size:26px;font-weight:600;margin:0 0 4px}}
-.sub{{color:#6b7280;margin:0 0 24px}}
-.verdict{{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:14px 18px;margin:0 0 28px;color:#065f46;font-size:15px}}
-h2{{font-size:18px;font-weight:600;margin:34px 0 12px}}
-table{{width:100%;border-collapse:collapse;font-size:14px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden}}
-th,td{{padding:10px 12px;text-align:left;border-bottom:1px solid #f1f5f9}}
-th{{background:#f8fafc;color:#6b7280;font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}}
-td.num{{text-align:right;font-variant-numeric:tabular-nums}}
-tr.rec{{background:#f0fdfa}}
-tr.rec td:first-child{{border-left:3px solid #0d9488}}
-.badge{{display:inline-block;background:#0d9488;color:#fff;font-size:11px;padding:2px 8px;border-radius:999px;margin-left:8px}}
-.card{{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;margin-top:8px}}
-.bars{{display:flex;flex-direction:column;gap:8px}}
-.bar-row{{display:flex;align-items:center;gap:12px}}
-.bar-label{{width:130px;color:#374151;font-size:13px}}
-.bar-track{{flex:1;height:10px;background:#f1f5f9;border-radius:999px;overflow:hidden}}
-.bar-fill{{display:block;height:100%;background:#0d9488}}
-.bar-val{{width:42px;text-align:right;font-variant-numeric:tabular-nums;color:#6b7280;font-size:13px}}
-.foot{{color:#9ca3af;font-size:12.5px;margin-top:40px;border-top:1px solid #e5e7eb;padding-top:14px}}
-.legend{{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:#6b7280;margin:8px 0 0}}
-.dot{{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}}
-@media (prefers-color-scheme: dark){{
-  body{{background:#0f1419;color:#e5e7eb}}
-  .sub,.foot,.bar-label,.bar-val,.legend{{color:#9ca3af}}
-  .card,table{{background:#1a1f2e;border-color:#374151}}
-  th{{background:#161b26;color:#9ca3af}}
-  th,td{{border-color:#374151}}
-  .verdict{{background:#0f2a1e;border-color:#14532d;color:#a7f3d0}}
-  tr.rec{{background:#0f2a26}}
-  #filters select,#filters input,button{{background:#1a1f2e;color:#e5e7eb;border:1px solid #374151}}
-}}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600&display=swap" rel="stylesheet">
+<title>__TITLE__</title><style>
+:root{color-scheme:light dark}
+*{box-sizing:border-box}
+"""
+
+# TOKENS_CSS is injected here (no .format — raw concatenation)
+
+_PAGE_CSS = """\
+body{font-family:var(--fb-font-body);color:var(--fb-text);background:var(--fb-bg);margin:0;line-height:var(--fb-body-lh);font-size:var(--fb-body)}
+.wrap{max-width:var(--fb-max-width);margin:0 auto;padding:40px 24px 80px}
+h1{font-family:var(--fb-font-mono);font-size:var(--fb-h1);line-height:var(--fb-h1-lh);font-weight:600;margin:0 0 4px}
+.sub{color:var(--fb-text-muted);margin:0 0 24px}
+.verdict{background:var(--fb-verdict-bg);border-left:3px solid var(--fb-accent);border-radius:var(--fb-radius);padding:14px 18px;margin:0 0 28px;color:var(--fb-verdict-text);font-size:var(--fb-body)}
+h2{font-family:var(--fb-font-mono);font-size:var(--fb-h2);line-height:var(--fb-h2-lh);font-weight:600;margin:34px 0 12px}
+table{width:100%;border-collapse:collapse;font-size:var(--fb-body);background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--fb-radius);overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--fb-border-faint)}
+th{background:var(--fb-bg);color:var(--fb-text-muted);font-family:var(--fb-font-mono);font-size:var(--fb-label);font-weight:var(--fb-label-weight);text-transform:var(--fb-label-transform);letter-spacing:var(--fb-label-tracking)}
+td.num{text-align:right;font-family:var(--fb-font-mono);font-feature-settings:var(--fb-num-features)}
+tr.rec{background:var(--fb-accent-bg)}
+tr.rec td:first-child{border-left:3px solid var(--fb-accent)}
+.badge{display:inline-block;background:var(--fb-accent);color:var(--fb-surface);font-size:11px;padding:2px 8px;border-radius:var(--fb-radius-pill);margin-left:8px}
+.card{background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--fb-radius);padding:18px;margin-top:8px}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:12px}
+.bar-label{width:130px;color:var(--fb-text-strong);font-size:var(--fb-small)}
+.bar-track{flex:1;height:10px;background:var(--fb-surface-2-light);border-radius:var(--fb-radius-pill);overflow:hidden}
+.bar-fill{display:block;height:100%;background:var(--fb-accent)}
+.bar-val{width:42px;text-align:right;font-family:var(--fb-font-mono);font-feature-settings:var(--fb-num-features);color:var(--fb-text-muted);font-size:var(--fb-small)}
+.foot{color:var(--fb-text-faint);font-size:var(--fb-label);margin-top:40px;border-top:1px solid var(--fb-border);padding-top:14px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fb-small);color:var(--fb-text-muted);margin:8px 0 0}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+@media (prefers-color-scheme: dark){
+  .card,table{background:var(--fb-surface);border-color:var(--fb-border)}
+  th{background:var(--fb-surface-2)}
+  #filters select,#filters input,button{background:var(--fb-surface);color:var(--fb-text);border:1px solid var(--fb-border)}
+}
+"""
+
+_PAGE_TAIL = """\
 </style></head><body><div class="wrap">
-<div class="nav" style="margin:0 0 16px;font-size:14px"><a href="leaderboard.html" style="color:#0d9488;text-decoration:none">Contributor leaderboard →</a></div>
-<h1>{title}</h1>
-<p class="sub">When is multi-model fusion worth it — and which combo, per task type. {meta}</p>
-<div class="verdict">{verdict}</div>
+<div class="nav" style="margin:0 0 16px;font-size:var(--fb-small)"><a href="leaderboard.html" style="color:var(--fb-accent);text-decoration:none">Contributor leaderboard →</a></div>
+<h1>__TITLE__</h1>
+<p class="sub">When is multi-model fusion worth it — and which combo, per task type. __META__</p>
+<div class="verdict">__VERDICT__</div>
 <div id="filters" class="card" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:8px"></div>
 <h2>Cost vs quality</h2>
 <div id="hero" class="card" style="height:420px"></div>
-<h2>Worthiness — recipe × task type</h2>
+<h2>Worthiness — recipe \xd7 task type</h2>
 <div id="heatmap" class="card" style="height:420px"></div>
 <h2>Explorer</h2>
 <div style="margin:8px 0">
@@ -191,16 +208,37 @@ tr.rec td:first-child{{border-left:3px solid #0d9488}}
 <div id="explorer-chart" class="card" style="height:420px"></div>
 <div id="explorer-table" class="card" style="overflow-x:auto"></div>
 <noscript>
-{sections}
+__SECTIONS__
 <h2>Cost vs quality (static)</h2>
-<div class="card">{scatter}<div class="legend">{legend}</div></div>
+<div class="card">__SCATTER__<div class="legend">__LEGEND__</div></div>
 <h2>Panel complementarity by task type</h2>
-<div class="card">{bars}</div>
+<div class="card">__BARS__</div>
 </noscript>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script src="app.js"></script>
-<p class="foot">{foot}</p>
-</div></body></html>"""
+<p class="foot">__FOOT__</p>
+</div></body></html>
+"""
+
+
+def _make_page(*, title: str, meta: str, verdict: str, sections: str,
+               scatter: str, legend: str, bars: str, foot: str) -> str:
+    """Assemble the catalog HTML page, injecting TOKENS_CSS safely (no .format collision)."""
+    page = (
+        _PAGE_HEAD.replace("__TITLE__", title, 1)
+        + TOKENS_CSS
+        + _PAGE_CSS
+        + _PAGE_TAIL
+        .replace("__TITLE__", title)
+        .replace("__META__", meta)
+        .replace("__VERDICT__", verdict)
+        .replace("__SECTIONS__", sections)
+        .replace("__SCATTER__", scatter)
+        .replace("__LEGEND__", legend)
+        .replace("__BARS__", bars)
+        .replace("__FOOT__", foot)
+    )
+    return page
 
 
 def render_fallback(rows: list[dict], title: str) -> str:
@@ -259,9 +297,11 @@ def render_fallback(rows: list[dict], title: str) -> str:
     foot = ("Generated {t} by FusionBench build_catalog. Numbers reflect the runs in runs/*.jsonl "
             "(mock data is illustrative — re-generate after a live run)."
             ).format(t=time.strftime("%Y-%m-%d"))
-    return PAGE.format(title=html.escape(title), meta=meta, verdict=verdict,
-                       sections="".join(sections), scatter=svg_scatter(by_recipe),
-                       legend=legend, bars=compl_bars(by_type), foot=foot)
+    return _make_page(
+        title=html.escape(title), meta=meta, verdict=verdict,
+        sections="".join(sections), scatter=svg_scatter(by_recipe),
+        legend=legend, bars=compl_bars(by_type), foot=foot,
+    )
 
 
 def build_data(rows: list[dict]) -> dict:
