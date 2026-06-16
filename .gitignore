@@ -22,3 +22,7 @@ runs/
 # Plaintext gold answer keys — only the .enc form is committed.
 gold/*.jsonl
 !gold/.gitkeep
+
+# Internal Claude Code dev artifacts (handoffs, brainstorm specs, plans) — not part of the public repo.
+.claude/
+docs/superpowers/

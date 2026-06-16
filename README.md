@@ -6,6 +6,8 @@
 
 **When is multi-model "fusion" actually worth it — and which combo, for which task?**
 
+🔭 **Live site:** [recipe catalog](https://socialpranker.github.io/fusionbench/) · [contributor leaderboard](https://socialpranker.github.io/fusionbench/leaderboard.html)
+
 Most "council of models" tools assume mixing models beats a single strong model. The literature says otherwise: aggregating *N* samples of the best single model (Self-MoA) often beats mixing weaker ones at equal compute. FusionBench measures this honestly, then turns the answer into a maintained, public **recipe catalog** for model *combinations* per task type.
 
 ## The bet (what's actually new)
