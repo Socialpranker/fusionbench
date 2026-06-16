@@ -68,15 +68,26 @@ function toCSV(cells) {
 
 (function () {
   if (typeof document === "undefined") return; // not a browser — skip IIFE (node UMD load)
-  var ARM_COLOR = {
-    best_single: "#6b7280", self_moa: "#2563eb",
-    fusion: "#0d9488", source_pool: "#7c3aed"
-  };
+
+  // Read a CSS custom property value from :root (resolves active @media-dark branch automatically).
+  // Must be called per-render, NOT once at load — so theme switches return fresh values.
+  function tok(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // ARM_COLOR as a function so tok() is called per-render (DOM-ready, theme-aware).
+  function armColor(arm) {
+    var map = {
+      best_single: tok("--fb-arm-best-single"),
+      self_moa:    tok("--fb-arm-self-moa"),
+      fusion:      tok("--fb-arm-fusion"),
+      source_pool: tok("--fb-arm-source-pool")
+    };
+    return map[arm] || tok("--fb-arm-best-single");
+  }
 
   function fail(msg) {
     ["hero", "heatmap"].forEach(function (id) {
       var el = document.getElementById(id);
-      if (el) { el.textContent = msg; el.style.color = "#6b7280"; el.style.padding = "16px"; }
+      if (el) { el.textContent = msg; el.style.color = tok("--fb-text-muted"); el.style.padding = "16px"; }
     });
   }
 
@@ -85,7 +96,7 @@ function toCSV(cells) {
     disposeCharts();                            // also clears orphaned canvases
     ["hero", "heatmap"].forEach(function (id) {
       var el = document.getElementById(id);
-      if (el) { el.textContent = msg; el.style.color = "#6b7280"; el.style.padding = "16px"; }
+      if (el) { el.textContent = msg; el.style.color = tok("--fb-text-muted"); el.style.padding = "16px"; }
     });
     // clear explorer too, so a stale table can't look current vs an empty export.
     ["explorer-chart", "explorer-table"].forEach(function (id) {
@@ -99,11 +110,14 @@ function toCSV(cells) {
     charts = [];
   }
 
-  function isDark() { return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches; }
+  // axisColors() reads CSS tokens — getComputedStyle resolves the active @media (dark) branch.
+  // Called per-render so theme switches pick up new values automatically.
   function axisColors() {
-    return isDark()
-      ? { axis: "#9ca3af", text: "#e5e7eb", split: "#374151" }
-      : { axis: "#6b7280", text: "#111827", split: "#e5e7eb" };
+    return {
+      axis:  tok("--fb-chart-axis"),
+      text:  tok("--fb-chart-text"),
+      split: tok("--fb-chart-split")
+    };
   }
 
   if (typeof echarts === "undefined") {
@@ -253,7 +267,7 @@ function toCSV(cells) {
   function labelWrap(text) {
     var wrap = document.createElement("label");
     wrap.style.display = "inline-flex"; wrap.style.alignItems = "center";
-    wrap.style.gap = "6px"; wrap.style.fontSize = "13px"; wrap.style.color = "#6b7280";
+    wrap.style.gap = "6px"; wrap.style.fontSize = "13px"; wrap.style.color = tok("--fb-text-muted");
     if (text) { var t = document.createElement("span"); t.textContent = text; wrap.appendChild(t); }
     for (var i = 1; i < arguments.length; i++) wrap.appendChild(arguments[i]);
     return wrap;
@@ -291,14 +305,14 @@ function toCSV(cells) {
           type: "scatter", symbolSize: 16,
           data: pts.map(function (c) {
             return { name: c.recipe, value: [c.cost_usd, c.accuracy],
-                     itemStyle: { color: ARM_COLOR[c.arm] || "#6b7280" } };
+                     itemStyle: { color: armColor(c.arm) } };
           }),
           label: { show: true, position: "top",
                    formatter: function (p) { return p.data.name; }, fontSize: 11 }
         },
         {
           type: "line", symbol: "none", silent: true,
-          lineStyle: { type: "dashed", color: "#9ca3af" },
+          lineStyle: { type: "dashed", color: tok("--fb-chart-pareto") },
           data: (pareto || []).filter(function (p) { return p.cost_usd > 0; })
                   .map(function (p) { return [p.cost_usd, p.accuracy]; })
         }
@@ -336,7 +350,7 @@ function toCSV(cells) {
       visualMap: {
         min: -0.1, max: 0.1, calculable: true, orient: "horizontal",
         left: "center", bottom: 0,
-        inRange: { color: ["#b91c1c", "#f1f5f9", "#15803d"] }
+        inRange: { color: [tok("--fb-heatmap-low"), tok("--fb-heatmap-mid"), tok("--fb-heatmap-high")] }
       },
       series: [{
         type: "heatmap", data: matrix,
@@ -385,7 +399,7 @@ function toCSV(cells) {
         data: cells.filter(function (c) { return c.cost_usd > 0; }).map(function (c) {
           return { value: [c.cost_usd, c.accuracy], cell: c,
                    symbolSize: 8 + 18 * (c.n || 1) / maxN,
-                   itemStyle: { color: ARM_COLOR[c.arm] || "#6b7280" } };
+                   itemStyle: { color: armColor(c.arm) } };
         })
       }]
     });
