@@ -29,7 +29,11 @@ def collect_dataset_files(source_dir):
 
 
 def publish(api, repo_id, files, dry_run, attempts=3):
-    """Create the dataset repo (idempotent) and upload each file. dry_run prints only."""
+    """Create the dataset repo (idempotent) and upload each file. dry_run prints only.
+
+    Uploads are per-file, not atomic: a mid-run failure leaves a partial snapshot —
+    rerun to converge (each run overwrites both result files).
+    """
     if dry_run:
         print(f"[dry-run] would publish dataset {repo_id}:")
         for local, repo_path in files:

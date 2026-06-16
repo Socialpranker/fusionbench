@@ -96,3 +96,40 @@ def test_main_missing_source_exits(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as e:
         pd.main()
     assert e.value.code != 0
+
+
+def test_publish_retries_then_succeeds(monkeypatch):
+    # upload fails once, then succeeds — publish must retry and not raise.
+    monkeypatch.setattr(pd.time, "sleep", lambda s: None)
+    attempts = {"n": 0}
+
+    class FlakyApi:
+        def create_repo(self, *a, **k):
+            pass
+
+        def upload_file(self, *a, **k):
+            attempts["n"] += 1
+            if attempts["n"] < 2:
+                raise RuntimeError("flaky TLS")
+
+    pd.publish(FlakyApi(), "user/fb", [("/tmp/data.json", "data.json")],
+               dry_run=False, attempts=3)
+    assert attempts["n"] == 2  # one failure + one success
+
+
+def test_publish_reraises_after_exhausting_attempts(monkeypatch):
+    monkeypatch.setattr(pd.time, "sleep", lambda s: None)
+    attempts = {"n": 0}
+
+    class DeadApi:
+        def create_repo(self, *a, **k):
+            pass
+
+        def upload_file(self, *a, **k):
+            attempts["n"] += 1
+            raise RuntimeError("net down")
+
+    with pytest.raises(RuntimeError, match="net down"):
+        pd.publish(DeadApi(), "user/fb", [("/tmp/data.json", "data.json")],
+                   dry_run=False, attempts=3)
+    assert attempts["n"] == 3  # all attempts exhausted
