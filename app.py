@@ -25,8 +25,12 @@ SORT_CHOICES = ["worthiness", "accuracy", "cost", "recipe"]
 # verbatim from the site token layer (site CSS :root / @media dark). Flat, no shadows.
 #   accent teal #0d9488 · radius 12px · mono = IBM Plex Mono · body = system sans
 # Theme carries BOTH light and _dark variants, so it tracks prefers-color-scheme.
-_FONT_BODY = (
-    "system-ui", "-apple-system", "Segoe UI", "sans-serif",
+# Each stack element must be a gradio Font object (not a bare str): Gradio 6
+# compares themes at launch() via Font.__eq__, which reads `.name` off every
+# element — a bare str has no `.name` and crashes is_custom_theme.
+_FONT_BODY = tuple(
+    gr.themes.Font(name)
+    for name in ("system-ui", "-apple-system", "Segoe UI", "sans-serif")
 )
 THEME = (
     gr.themes.Base(
