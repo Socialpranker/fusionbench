@@ -60,3 +60,39 @@ def test_real_publish_calls_create_and_upload():
                [("/tmp/data.json", "data.json")], dry_run=False)
     assert ("create", "user/fb-results", "dataset", True) in calls
     assert ("upload", "data.json") in calls
+
+
+def test_main_no_token_not_dryrun_exits(tmp_path, monkeypatch):
+    src = tmp_path / "site"
+    src.mkdir()
+    (src / "leaderboard.json").write_text("{}")
+    (src / "data.json").write_text("{}")
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.setattr(sys, "argv", [
+        "publish_datasets.py", "--repo", "user/fb", "--source", str(src)])
+    with pytest.raises(SystemExit) as e:
+        pd.main()
+    assert e.value.code != 0
+
+
+def test_main_dry_run_succeeds_without_token(tmp_path, monkeypatch, capsys):
+    src = tmp_path / "site"
+    src.mkdir()
+    (src / "leaderboard.json").write_text("{}")
+    (src / "data.json").write_text("{}")
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.setattr(sys, "argv", [
+        "publish_datasets.py", "--repo", "user/fb", "--source", str(src), "--dry-run"])
+    pd.main()  # no SystemExit, no token needed
+    assert "[dry-run]" in capsys.readouterr().out
+
+
+def test_main_missing_source_exits(tmp_path, monkeypatch):
+    src = tmp_path / "site"
+    src.mkdir()
+    (src / "leaderboard.json").write_text("{}")  # data.json missing
+    monkeypatch.setattr(sys, "argv", [
+        "publish_datasets.py", "--repo", "user/fb", "--source", str(src), "--dry-run"])
+    with pytest.raises(SystemExit) as e:
+        pd.main()
+    assert e.value.code != 0

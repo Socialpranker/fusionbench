@@ -50,3 +50,33 @@ def publish(api, repo_id, files, dry_run, attempts=3):
                     raise
                 time.sleep(delay)
                 delay *= 2
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Publish FusionBench results as an HF Dataset.")
+    ap.add_argument("--repo", required=True, help="dataset repo id, e.g. user/fusionbench-results")
+    ap.add_argument("--source", default="site", help="dir holding leaderboard.json + data.json")
+    ap.add_argument("--dry-run", action="store_true", help="print plan, do not touch network")
+    args = ap.parse_args()
+
+    # collect first: a missing source file is a hard error in both modes.
+    try:
+        files = collect_dataset_files(args.source)
+    except FileNotFoundError as e:
+        raise SystemExit(str(e))  # non-zero exit, not assert (survives python -O)
+
+    if args.dry_run:
+        publish(None, args.repo, files, dry_run=True)
+        return
+
+    token = os.environ.get("HF_TOKEN")
+    if not token:
+        raise SystemExit("HF_TOKEN not set — export it or use --dry-run")
+
+    from huggingface_hub import HfApi  # imported lazily: dry-run needs no hub install
+    publish(HfApi(token=token), args.repo, files, dry_run=False)
+    print(f"published {len(files)} files to dataset {args.repo}")
+
+
+if __name__ == "__main__":
+    main()
