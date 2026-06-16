@@ -43,7 +43,7 @@ def test_sort_cost_ascending():
 
 
 def test_sort_worthiness_desc_nulls_last():
-    # complementarity sort: None must land at the end, deterministically.
+    # worthiness sort: None must land at the end, deterministically.
     out = tr.filter_catalog(_cells(), type="", maxcost=1.0, minacc=0.0, sort="worthiness")
     worth = [c["worthiness_vs_best"] for c in out]
     assert worth == sorted(worth, reverse=True)
