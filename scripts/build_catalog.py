@@ -25,9 +25,11 @@ if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 from site_tokens import TOKENS_CSS  # noqa: E402
 
+# Kept in sync (by hand) with the --fb-arm-* token values in site_tokens.py — used by the
+# static <noscript> SVG scatter only; the live ECharts views read the CSS vars directly.
 ARM_COLOR = {
-    "best_single": "#6b7280", "self_moa": "#2563eb",
-    "fusion": "#0d9488", "source_pool": "#7c3aed",
+    "best_single": "#8a8276", "self_moa": "#3b6ea5",
+    "fusion": "#ff5b04", "source_pool": "#7a4fb5",
 }
 
 
@@ -59,11 +61,12 @@ def fmt_usd(x: float) -> str:
 
 
 def worth_color(w: float) -> str:
+    # CSS var() so the static <noscript> table tracks the token layer (light/dark) too.
     if w > 0.02:
-        return "#15803d"
+        return "var(--fb-better)"
     if w < -0.02:
-        return "#b91c1c"
-    return "#6b7280"
+        return "var(--fb-worse)"
+    return "var(--fb-text-muted)"
 
 
 def pareto_frontier(by_recipe: dict[str, dict]) -> list[dict]:
@@ -95,30 +98,32 @@ def svg_scatter(by_recipe: dict[str, dict]) -> str:
     def X(c): return pad + (c - cmin) / (cmax - cmin) * (W - 2 * pad)
     def Y(a): return H - pad - (a - amin) / (amax - amin) * (H - 2 * pad)
 
+    # SVG presentation attrs don't resolve CSS var() — use style="..." so the static
+    # <noscript> scatter still tracks the token layer (light/dark) like the live charts.
     parts = [f'<svg viewBox="0 0 {W} {H}" width="100%" role="img" '
              f'aria-label="Cost-quality scatter of recipes with Pareto frontier" '
-             f'font-family="system-ui,sans-serif">']
+             f'style="font-family:var(--fb-font-mono)">']
     # axes
-    parts.append(f'<line x1="{pad}" y1="{H-pad}" x2="{W-pad}" y2="{H-pad}" stroke="#d1d5db"/>')
-    parts.append(f'<line x1="{pad}" y1="{pad}" x2="{pad}" y2="{H-pad}" stroke="#d1d5db"/>')
+    parts.append(f'<line x1="{pad}" y1="{H-pad}" x2="{W-pad}" y2="{H-pad}" style="stroke:var(--fb-chart-svg-axis)"/>')
+    parts.append(f'<line x1="{pad}" y1="{pad}" x2="{pad}" y2="{H-pad}" style="stroke:var(--fb-chart-svg-axis)"/>')
     parts.append(f'<text x="{W/2}" y="{H-16}" text-anchor="middle" font-size="13" '
-                 f'fill="#6b7280">cost per task ($) -></text>')
-    parts.append(f'<text x="18" y="{H/2}" text-anchor="middle" font-size="13" fill="#6b7280" '
-                 f'transform="rotate(-90 18 {H/2})">accuracy -></text>')
+                 f'style="fill:var(--fb-chart-axis)">cost per task ($) -></text>')
+    parts.append(f'<text x="18" y="{H/2}" text-anchor="middle" font-size="13" '
+                 f'style="fill:var(--fb-chart-axis)" transform="rotate(-90 18 {H/2})">accuracy -></text>')
     # frontier (upper-left envelope) via shared pareto_frontier
     front = [(p["cost_usd"], p["accuracy"]) for p in pareto_frontier(by_recipe)]
     if len(front) >= 2:
         poly = " ".join(f"{X(c):.1f},{Y(a):.1f}" for c, a in front)
-        parts.append(f'<polyline points="{poly}" fill="none" stroke="#9ca3af" '
+        parts.append(f'<polyline points="{poly}" fill="none" style="stroke:var(--fb-chart-pareto)" '
                      f'stroke-dasharray="5 5" stroke-width="1.5"/>')
     # points
     for nm, v in by_recipe.items():
-        col = ARM_COLOR.get(v["arm"], "#6b7280")
+        col = ARM_COLOR.get(v["arm"], ARM_COLOR["best_single"])
         x, y = X(v["cost"]), Y(v["acc"])
-        parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="7" fill="{col}" '
-                     f'fill-opacity="0.85"/>')
+        parts.append(f'<rect x="{x-6:.1f}" y="{y-6:.1f}" width="12" height="12" '
+                     f'style="fill:{col}" fill-opacity="0.9"/>')
         parts.append(f'<text x="{x:.1f}" y="{y-12:.1f}" text-anchor="middle" font-size="11.5" '
-                     f'fill="#374151">{html.escape(nm)}</text>')
+                     f'style="fill:var(--fb-chart-text)">{html.escape(nm)}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -130,7 +135,7 @@ def compl_bars(by_type: dict[str, list[dict]]) -> str:
         if cs:
             items.append((ttype, sum(cs) / len(cs)))
     if not items:
-        return "<p style='color:#6b7280'>No complementarity recorded.</p>"
+        return "<p style='color:var(--fb-text-muted)'>No complementarity recorded.</p>"
     out = ['<div class="bars">']
     for ttype, c in sorted(items, key=lambda x: -x[1]):
         pct = round(c * 100)
@@ -150,7 +155,7 @@ _PAGE_HEAD = """\
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <title>__TITLE__</title><style>
 :root{color-scheme:light dark}
 *{box-sizing:border-box}
@@ -161,38 +166,54 @@ _PAGE_HEAD = """\
 _PAGE_CSS = """\
 body{font-family:var(--fb-font-body);color:var(--fb-text);background:var(--fb-bg);margin:0;line-height:var(--fb-body-lh);font-size:var(--fb-body)}
 .wrap{max-width:var(--fb-max-width);margin:0 auto;padding:40px 24px 80px}
-h1{font-family:var(--fb-font-mono);font-size:var(--fb-h1);line-height:var(--fb-h1-lh);font-weight:600;margin:0 0 4px}
-.sub{color:var(--fb-text-muted);margin:0 0 24px}
-.verdict{background:var(--fb-verdict-bg);border-left:3px solid var(--fb-accent);border-radius:var(--fb-radius);padding:14px 18px;margin:0 0 28px;color:var(--fb-verdict-text);font-size:var(--fb-body)}
-h2{font-family:var(--fb-font-mono);font-size:var(--fb-h2);line-height:var(--fb-h2-lh);font-weight:600;margin:34px 0 12px}
-table{width:100%;border-collapse:collapse;font-size:var(--fb-body);background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--fb-radius);overflow:hidden}
-th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--fb-border-faint)}
-th{background:var(--fb-bg);color:var(--fb-text-muted);font-family:var(--fb-font-mono);font-size:var(--fb-label);font-weight:var(--fb-label-weight);text-transform:var(--fb-label-transform);letter-spacing:var(--fb-label-tracking)}
+/* masthead — брутал-плита: чернильный блок с mono-eyebrow + крупным заголовком */
+.masthead{background:var(--fb-text);color:var(--fb-bg);border:var(--fb-border-w) solid var(--fb-border);padding:22px 24px;margin:0 0 8px}
+.masthead .eyebrow{font-family:var(--fb-font-mono);font-size:var(--fb-label);letter-spacing:0.12em;text-transform:uppercase;color:var(--fb-accent);margin:0 0 8px}
+h1{font-family:var(--fb-font-mono);font-size:var(--fb-h1);line-height:var(--fb-h1-lh);font-weight:700;letter-spacing:-0.02em;margin:0}
+.masthead h1{color:var(--fb-bg)}
+.sub{color:var(--fb-text-muted);margin:14px 0 24px;max-width:64ch}
+/* verdict — инверсная плита с офсет-тенью и оранжевой левой колонкой-маркером */
+.verdict{background:var(--fb-verdict-bg);border:var(--fb-border-w) solid var(--fb-verdict-border);box-shadow:var(--fb-shadow);padding:16px 20px;margin:0 0 30px;color:var(--fb-verdict-text);font-size:var(--fb-body);position:relative}
+.verdict::before{content:"▸";color:var(--fb-accent);font-family:var(--fb-font-mono);margin-right:10px;font-weight:700}
+.verdict b{color:var(--fb-accent)}
+h2{font-family:var(--fb-font-mono);font-size:var(--fb-h2);line-height:var(--fb-h2-lh);font-weight:700;letter-spacing:-0.01em;margin:36px 0 12px;padding-bottom:6px;border-bottom:var(--fb-border-w) solid var(--fb-border)}
+table{width:100%;border-collapse:collapse;font-size:var(--fb-body);background:var(--fb-surface);border:var(--fb-border-w) solid var(--fb-border);border-radius:var(--fb-radius)}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--fb-border-faint)}
+th{background:var(--fb-surface-2-light);color:var(--fb-text-muted);font-family:var(--fb-font-mono);font-size:var(--fb-label);font-weight:var(--fb-label-weight);text-transform:var(--fb-label-transform);letter-spacing:var(--fb-label-tracking);border-bottom:var(--fb-border-w) solid var(--fb-border)}
 td.num{text-align:right;font-family:var(--fb-font-mono);font-feature-settings:var(--fb-num-features)}
 tr.rec{background:var(--fb-accent-bg)}
-tr.rec td:first-child{border-left:3px solid var(--fb-accent)}
-.badge{display:inline-block;background:var(--fb-accent);color:var(--fb-surface);font-size:11px;padding:2px 8px;border-radius:var(--fb-radius-pill);margin-left:8px}
-.card{background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--fb-radius);padding:18px;margin-top:8px}
+tr.rec td:first-child{border-left:4px solid var(--fb-accent)}
+.badge{display:inline-block;background:var(--fb-accent);color:var(--fb-accent-ink);font-family:var(--fb-font-mono);font-size:11px;font-weight:500;padding:1px 7px;border-radius:var(--fb-radius-pill);margin-left:8px;text-transform:uppercase;letter-spacing:0.04em}
+.card{background:var(--fb-surface);border:var(--fb-border-w) solid var(--fb-border);border-radius:var(--fb-radius);padding:18px;margin-top:8px}
 .bars{display:flex;flex-direction:column;gap:8px}
 .bar-row{display:flex;align-items:center;gap:12px}
-.bar-label{width:130px;color:var(--fb-text-strong);font-size:var(--fb-small)}
-.bar-track{flex:1;height:10px;background:var(--fb-surface-2-light);border-radius:var(--fb-radius-pill);overflow:hidden}
+.bar-label{width:130px;color:var(--fb-text-strong);font-family:var(--fb-font-mono);font-size:var(--fb-small)}
+.bar-track{flex:1;height:12px;background:var(--fb-surface-2-light);border:1px solid var(--fb-border);border-radius:var(--fb-radius);overflow:hidden}
 .bar-fill{display:block;height:100%;background:var(--fb-accent)}
 .bar-val{width:42px;text-align:right;font-family:var(--fb-font-mono);font-feature-settings:var(--fb-num-features);color:var(--fb-text-muted);font-size:var(--fb-small)}
-.foot{color:var(--fb-text-faint);font-size:var(--fb-label);margin-top:40px;border-top:1px solid var(--fb-border);padding-top:14px}
-.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fb-small);color:var(--fb-text-muted);margin:8px 0 0}
-.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.foot{color:var(--fb-text-faint);font-family:var(--fb-font-mono);font-size:var(--fb-label);margin-top:40px;border-top:var(--fb-border-w) solid var(--fb-border);padding-top:14px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--fb-font-mono);font-size:var(--fb-small);color:var(--fb-text-muted);margin:8px 0 0}
+.dot{display:inline-block;width:10px;height:10px;border-radius:0;margin-right:5px;vertical-align:-1px}
+/* контролы — терминальная строка: квадратные, хард-границы */
+#filters select,#filters input,button{font-family:var(--fb-font-mono);border-radius:var(--fb-radius)}
+button{background:var(--fb-surface);color:var(--fb-text);border:var(--fb-border-w) solid var(--fb-border);padding:6px 14px;font-size:var(--fb-small);cursor:pointer;transition:background .12s,color .12s}
+button:hover{background:var(--fb-accent);color:var(--fb-accent-ink);border-color:var(--fb-accent)}
 @media (prefers-color-scheme: dark){
+  .masthead{background:var(--fb-surface-2);color:var(--fb-text)}
+  .masthead h1{color:var(--fb-text)}
   .card,table{background:var(--fb-surface);border-color:var(--fb-border)}
-  th{background:var(--fb-surface-2)}
-  #filters select,#filters input,button{background:var(--fb-surface);color:var(--fb-text);border:1px solid var(--fb-border)}
+  th{background:var(--fb-surface-2-light)}
+  #filters select,#filters input,button{background:var(--fb-surface);color:var(--fb-text);border:var(--fb-border-w) solid var(--fb-border)}
 }
 """
 
 _PAGE_TAIL = """\
 </style></head><body><div class="wrap">
-<div class="nav" style="margin:0 0 16px;font-size:var(--fb-small)"><a href="leaderboard.html" style="color:var(--fb-accent);text-decoration:none">Contributor leaderboard →</a></div>
-<h1>__TITLE__</h1>
+<div class="nav" style="margin:0 0 14px;font-family:var(--fb-font-mono);font-size:var(--fb-small)"><a href="leaderboard.html" style="color:var(--fb-accent);text-decoration:none">▸ contributor leaderboard →</a></div>
+<div class="masthead">
+  <p class="eyebrow">▸ fusionbench / catalog</p>
+  <h1>__TITLE__</h1>
+</div>
 <p class="sub">When is multi-model fusion worth it — and which combo, per task type. __META__</p>
 <div class="verdict">__VERDICT__</div>
 <div id="filters" class="card" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:8px"></div>
