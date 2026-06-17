@@ -20,82 +20,88 @@ TYPE_CHOICES = ["", "code", "deep_research", "multihop_qa", "math", "factual"]
 SORT_CHOICES = ["worthiness", "accuracy", "cost", "recipe"]
 
 # --- Visual identity ---------------------------------------------------------
-# Mirrors the site's design tokens (Swiss editorial + IBM Plex Mono + teal) so the
-# Gradio showcase reads as a continuation of the static site. Hex values are copied
-# verbatim from the site token layer (site CSS :root / @media dark). Flat, no shadows.
-#   accent teal #0d9488 · radius 12px · mono = IBM Plex Mono · body = system sans
+# Mirrors the site's design tokens (brutalist-terminal hybrid) so the Gradio showcase
+# reads as a continuation of the static site. Hex values are copied verbatim from the
+# site token layer (scripts/site_tokens.py :root / @media dark).
+#   monochrome paper/ink + ONE acid-orange accent · radius 0 · hard 2px borders
+#   mono = IBM Plex Mono · body = Space Grotesk
 # Theme carries BOTH light and _dark variants, so it tracks prefers-color-scheme.
-# Each stack element must be a gradio Font object (not a bare str): Gradio 6
-# compares themes at launch() via Font.__eq__, which reads `.name` off every
-# element — a bare str has no `.name` and crashes is_custom_theme.
-_FONT_BODY = tuple(
-    gr.themes.Font(name)
-    for name in ("system-ui", "-apple-system", "Segoe UI", "sans-serif")
-)
+# Font stack: BARE STRINGS — verified against gradio 6.18.0 with a real launch().
+# Gradio 6's launch() runs is_custom_theme by comparing our theme.to_dict() to every
+# built-in's; to_dict() keeps the font stack under _font/_font_mono as-is. Font.__eq__
+# is `self.name == other.name and ...`, so when our element is a Font/GoogleFont and a
+# built-in's aligned element is a bare str, `other.name` raises AttributeError (notably
+# vs the Glass theme). The built-in themes themselves use bare strings — matching that
+# form makes every comparison str==str, which never crashes. Webfonts are loaded by the
+# @import in CUSTOM_CSS (Space Grotesk + IBM Plex Mono), so no GoogleFont object needed.
+# NOTE: this supersedes the earlier "bare str crashes" note — that was an older gradio
+# 6.x; on 6.18.0 bare str is the ROBUST form. Always re-verify with a real launch().
+_FONT_BODY = ("Space Grotesk", "system-ui", "-apple-system", "Segoe UI", "sans-serif")
+_FONT_MONO = ("IBM Plex Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace")
 THEME = (
     gr.themes.Base(
         # primary hue drives interactive accents; we override the concrete fills
-        # below with our exact teal so the built-in hue ramp can't drift the brand.
-        primary_hue=gr.themes.colors.teal,
-        neutral_hue=gr.themes.colors.gray,
+        # below with our exact orange so the built-in hue ramp can't drift the brand.
+        primary_hue=gr.themes.colors.orange,
+        neutral_hue=gr.themes.colors.stone,
         font=_FONT_BODY,
-        font_mono=gr.themes.GoogleFont("IBM Plex Mono"),
-        radius_size=gr.themes.sizes.radius_md,
+        font_mono=_FONT_MONO,
+        radius_size=gr.themes.sizes.radius_none,
     )
     .set(
-        # --- surfaces & body (light / dark) ---
-        body_background_fill="#f8fafc",
-        body_background_fill_dark="#0f1419",
-        body_text_color="#111827",
-        body_text_color_dark="#e5e7eb",
-        body_text_color_subdued="#6b7280",
-        body_text_color_subdued_dark="#9ca3af",
-        background_fill_primary="#ffffff",
-        background_fill_primary_dark="#1a1f2e",
-        background_fill_secondary="#f1f5f9",
-        background_fill_secondary_dark="#161b26",
-        block_background_fill="#ffffff",
-        block_background_fill_dark="#1a1f2e",
-        panel_background_fill="#ffffff",
-        panel_background_fill_dark="#1a1f2e",
-        # --- borders ---
-        border_color_primary="#e5e7eb",
-        border_color_primary_dark="#374151",
-        block_border_color="#e5e7eb",
-        block_border_color_dark="#374151",
-        input_border_color="#e5e7eb",
-        input_border_color_dark="#374151",
+        # --- surfaces & body (light / dark) — tinted paper/ink, not pure #fff/#000 ---
+        body_background_fill="#f4f3ee",
+        body_background_fill_dark="#0c0d0c",
+        body_text_color="#141210",
+        body_text_color_dark="#e8e6df",
+        body_text_color_subdued="#5c574e",
+        body_text_color_subdued_dark="#9b968b",
+        background_fill_primary="#fbfbf8",
+        background_fill_primary_dark="#15171a",
+        background_fill_secondary="#e8e6dd",
+        background_fill_secondary_dark="#1f2225",
+        block_background_fill="#fbfbf8",
+        block_background_fill_dark="#15171a",
+        panel_background_fill="#fbfbf8",
+        panel_background_fill_dark="#15171a",
+        # --- borders: hard ink (2px applied via CSS below) ---
+        border_color_primary="#141210",
+        border_color_primary_dark="#e8e6df",
+        block_border_color="#141210",
+        block_border_color_dark="#e8e6df",
+        input_border_color="#141210",
+        input_border_color_dark="#e8e6df",
         # --- inputs ---
-        input_background_fill="#ffffff",
-        input_background_fill_dark="#0f1419",
+        input_background_fill="#fbfbf8",
+        input_background_fill_dark="#0c0d0c",
         # --- tables (catalog / leaderboard Dataframes) ---
-        table_even_background_fill="#ffffff",
-        table_even_background_fill_dark="#1a1f2e",
-        table_odd_background_fill="#f8fafc",
-        table_odd_background_fill_dark="#161b26",
-        table_border_color="#e5e7eb",
-        table_border_color_dark="#374151",
-        # --- accent: exact site teal on primary controls ---
-        color_accent="#0d9488",
-        color_accent_soft="#f0fdfa",
-        color_accent_soft_dark="#0f2a26",
-        link_text_color="#0d9488",
-        link_text_color_dark="#0d9488",
-        button_primary_background_fill="#0d9488",
-        button_primary_background_fill_dark="#0d9488",
-        button_primary_background_fill_hover="#0f766e",
-        button_primary_background_fill_hover_dark="#0f766e",
-        button_primary_text_color="#ffffff",
-        button_primary_text_color_dark="#ffffff",
-        button_primary_border_color="#0d9488",
-        button_primary_border_color_dark="#0d9488",
-        # --- radius 12px everywhere ---
-        block_radius="12px",
-        container_radius="12px",
-        input_radius="12px",
-        button_large_radius="12px",
-        button_small_radius="12px",
-        # --- flat: kill the default drop shadows ---
+        table_even_background_fill="#fbfbf8",
+        table_even_background_fill_dark="#15171a",
+        table_odd_background_fill="#f4f3ee",
+        table_odd_background_fill_dark="#1f2225",
+        table_border_color="#141210",
+        table_border_color_dark="#e8e6df",
+        # --- accent: exact site acid-orange on primary controls ---
+        color_accent="#ff5b04",
+        color_accent_soft="#fff0e8",
+        color_accent_soft_dark="#2a1810",
+        link_text_color="#ff5b04",
+        link_text_color_dark="#ff6a1a",
+        button_primary_background_fill="#ff5b04",
+        button_primary_background_fill_dark="#ff6a1a",
+        button_primary_background_fill_hover="#e04e00",
+        button_primary_background_fill_hover_dark="#ff5b04",
+        button_primary_text_color="#5c1f00",
+        button_primary_text_color_dark="#2a1810",
+        button_primary_border_color="#141210",
+        button_primary_border_color_dark="#e8e6df",
+        # --- radius 0 everywhere (square, brutal) ---
+        block_radius="0",
+        container_radius="0",
+        input_radius="0",
+        button_large_radius="0",
+        button_small_radius="0",
+        # --- flat: kill default drops; hard offset shadow added via CSS on accents ---
         block_shadow="none",
         block_shadow_dark="none",
         input_shadow="none",
@@ -104,17 +110,40 @@ THEME = (
     )
 )
 
-# CSS only adds what the theme can't express: mono + editorial weight on the page
-# headings (gr.Markdown h1/h2) and tabular-nums on table numbers so columns align.
-# No shadows / gradients / purple — the theme owns the rest.
+# CSS adds what the theme can't express: the Space Grotesk import, brutalist hard
+# 2px borders on blocks (theme only sets the color, not the width), square mono
+# headings, the inverse "masthead" slab on the page title, and tabular-nums on
+# table numbers. No shadows/gradients/purple — the theme owns the palette.
 CUSTOM_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap');
 .gradio-container h1,
 .gradio-container h2 {
   font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  font-weight: 700;
 }
-.gradio-container h1 { font-size: 2.125rem; line-height: 1.15; }
-.gradio-container h2 { font-size: 1.25rem; line-height: 1.25; }
+/* page title (first h1) → inverse ink slab, mirrors the site masthead */
+.gradio-container h1:first-of-type {
+  background: var(--body-text-color);
+  color: var(--body-background-fill);
+  border: 2px solid var(--body-text-color);
+  padding: 18px 22px;
+  font-size: 2rem;
+  line-height: 1.1;
+}
+.gradio-container h2 { font-size: 1.3125rem; line-height: 1.2; }
+/* hard brutalist borders: theme sets the color, we force the 2px width + square */
+.gradio-container .block,
+.gradio-container .form,
+.gradio-container table,
+.gradio-container .gr-box {
+  border-width: 2px !important;
+  border-radius: 0 !important;
+}
+/* tabs read as terminal tabs: square, hard underline on the active one */
+.gradio-container button.selected {
+  border-bottom: 2px solid var(--color-accent) !important;
+}
 /* tabular figures + mono so numeric columns line up under the headers */
 .gradio-container table td,
 .gradio-container table th {

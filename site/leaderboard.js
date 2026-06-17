@@ -5,6 +5,9 @@
   var foot = document.getElementById("foot");
   if (!board) return;  // page template always ships #board; guard defensively
 
+  // Read a CSS token off :root so status messages track the active theme (light/dark).
+  function tok(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
   fetch("leaderboard.json")
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(function (data) {
@@ -12,7 +15,7 @@
       if (foot) foot.textContent = "Updated " + ((data && data.updated) || "");
       if (!rows.length) {
         board.textContent = "No verified contributions yet.";
-        board.style.color = "#6b7280"; board.style.padding = "16px";
+        board.style.color = tok("--fb-text-muted"); board.style.padding = "16px";
         return;
       }
       board.appendChild(buildTable(rows));

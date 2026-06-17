@@ -92,7 +92,7 @@ _LB_HEAD = """\
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <title>FusionBench — leaderboard</title>
 <style>
 :root{color-scheme:light dark}
@@ -104,28 +104,36 @@ _LB_HEAD = """\
 _LB_CSS = """\
 body{font-family:var(--fb-font-body);color:var(--fb-text);background:var(--fb-bg);margin:0;line-height:var(--fb-body-lh);font-size:var(--fb-body)}
 .wrap{max-width:var(--fb-max-width);margin:0 auto;padding:40px 24px 80px}
-h1{font-family:var(--fb-font-mono);font-size:var(--fb-h1);line-height:var(--fb-h1-lh);font-weight:600;margin:0 0 4px}
-.sub{color:var(--fb-text-muted);margin:0 0 24px}
-.nav{margin:0 0 20px;font-size:var(--fb-small)}
+.masthead{background:var(--fb-text);color:var(--fb-bg);border:var(--fb-border-w) solid var(--fb-border);padding:22px 24px;margin:0 0 8px}
+.masthead .eyebrow{font-family:var(--fb-font-mono);font-size:var(--fb-label);letter-spacing:0.12em;text-transform:uppercase;color:var(--fb-accent);margin:0 0 8px}
+h1{font-family:var(--fb-font-mono);font-size:var(--fb-h1);line-height:var(--fb-h1-lh);font-weight:700;letter-spacing:-0.02em;margin:0}
+.masthead h1{color:var(--fb-bg)}
+.sub{color:var(--fb-text-muted);margin:14px 0 24px;max-width:64ch}
+.nav{margin:0 0 14px;font-family:var(--fb-font-mono);font-size:var(--fb-small)}
 .nav a{color:var(--fb-accent);text-decoration:none}
-table{width:100%;border-collapse:collapse;font-size:var(--fb-body);background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--fb-radius);overflow:hidden}
-th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--fb-border-faint)}
-th{background:var(--fb-bg);color:var(--fb-text-muted);font-family:var(--fb-font-mono);font-size:var(--fb-label);font-weight:var(--fb-label-weight);text-transform:var(--fb-label-transform);letter-spacing:var(--fb-label-tracking)}
+table{width:100%;border-collapse:collapse;font-size:var(--fb-body);background:var(--fb-surface);border:var(--fb-border-w) solid var(--fb-border);border-radius:var(--fb-radius)}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--fb-border-faint)}
+th{background:var(--fb-surface-2-light);color:var(--fb-text-muted);font-family:var(--fb-font-mono);font-size:var(--fb-label);font-weight:var(--fb-label-weight);text-transform:var(--fb-label-transform);letter-spacing:var(--fb-label-tracking);border-bottom:var(--fb-border-w) solid var(--fb-border)}
 td.num{text-align:right;font-family:var(--fb-font-mono);font-feature-settings:var(--fb-num-features)}
-.bar-wrap{background:var(--fb-surface-2-light);border-radius:var(--fb-radius-pill);height:8px;overflow:hidden;min-width:80px}
+.bar-wrap{background:var(--fb-surface-2-light);border:1px solid var(--fb-border);border-radius:var(--fb-radius);height:10px;overflow:hidden;min-width:80px}
 .bar-fill{display:block;height:100%;background:var(--fb-accent)}
-.foot{color:var(--fb-text-faint);font-size:var(--fb-label);margin-top:40px;border-top:1px solid var(--fb-border);padding-top:14px}
+.foot{color:var(--fb-text-faint);font-family:var(--fb-font-mono);font-size:var(--fb-label);margin-top:40px;border-top:var(--fb-border-w) solid var(--fb-border);padding-top:14px}
 @media (prefers-color-scheme: dark){
+  .masthead{background:var(--fb-surface-2);color:var(--fb-text)}
+  .masthead h1{color:var(--fb-text)}
   table{background:var(--fb-surface);border-color:var(--fb-border)}
-  th{background:var(--fb-surface-2)}
-  th,td{border-color:var(--fb-border)}
+  th{background:var(--fb-surface-2-light)}
+  th,td{border-color:var(--fb-border-faint)}
 }
 """
 
 _LB_TAIL = """\
 </style></head><body><div class="wrap">
-<div class="nav"><a href="index.html">← Catalog</a></div>
-<h1>Contributor leaderboard</h1>
+<div class="nav"><a href="index.html">▸ ← catalog</a></div>
+<div class="masthead">
+  <p class="eyebrow">▸ fusionbench / leaderboard</p>
+  <h1>Contributor leaderboard</h1>
+</div>
 <p class="sub">Points for verified contributions. Repeat cells decay (log). Relative ranking.</p>
 <div id="board"></div>
 <p class="foot" id="foot"></p>
